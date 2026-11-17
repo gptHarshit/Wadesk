@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+/*
+  WaDesk design tokens.
+  mist     cool green-grey neutrals used for every surface and line
+  rail     deep teal of the navigation rail
+  leaf     primary actions and outgoing message bubbles
+  marigold things waiting on you: unread chats, pending items
+  brick    errors and destructive actions
+*/
+@theme {
+  --font-sans: "Mukta", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Anek Latin", "Mukta", ui-sans-serif, system-ui, sans-serif;
+
+  --color-mist-50: #f5f7f6;
+  --color-mist-100: #ecf0ee;
+  --color-mist-200: #dde3e0;
+  --color-mist-300: #c5cec9;
+  --color-mist-400: #9aa7a1;
+  --color-mist-500: #6f7d77;
+  --color-mist-600: #55625c;
+  --color-mist-700: #3f4a45;
+  --color-mist-800: #2a3430;
+  --color-mist-900: #1a2320;
+
+  --color-rail-700: #1b4250;
+  --color-rail-800: #16383f;
+  --color-rail-900: #12313a;
+  --color-rail-950: #0c2229;
+
+  --color-leaf-50: #eef8f2;
+  --color-leaf-100: #ddf3e4;
+  --color-leaf-200: #bce5cb;
+  --color-leaf-500: #129a72;
+  --color-leaf-600: #0b7a5b;
+  --color-leaf-700: #086148;
+  --color-leaf-800: #074c39;
+
+  --color-marigold-50: #fdf6e3;
+  --color-marigold-100: #fbeabd;
+  --color-marigold-400: #f0b534;
+  --color-marigold-500: #e8a317;
+  --color-marigold-700: #9a6700;
+  --color-marigold-800: #6e4a00;
+
+  --color-brick-50: #fbefec;
+  --color-brick-100: #f6d9d3;
+  --color-brick-600: #b4412f;
+  --color-brick-700: #933425;
+
+  --color-sky-50: #edf5fb;
+  --color-sky-100: #d7e8f5;
+  --color-sky-700: #1f5f8b;
+}
+
+html {
+  font-size: 15px;
+}
+
+body {
+  background: var(--color-mist-50);
+  color: var(--color-mist-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tailwind 4 leaves buttons with the default cursor; this app is all buttons. */
+button:not(:disabled),
+[role="button"],
+summary,
+label[for],
+select {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-leaf-600);
+  outline-offset: 2px;
+}
+
+/* The pattern behind a chat thread: a quiet dotted grid, like ruled paper. */
+.thread-surface {
+  background-color: #eef1ef;
+  background-image: radial-gradient(rgb(18 49 58 / 0.07) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-mist-300) transparent;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.16s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Public policy pages: readable long-form text. */
+.legal {
+  color: var(--color-mist-800);
+  line-height: 1.65;
+}
+.legal h1 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-mist-900);
+}
+.legal .meta {
+  margin-top: 0.25rem;
+  color: var(--color-mist-500);
+  font-size: 0.9rem;
+}
+.legal h2 {
+  margin-top: 2rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-mist-900);
+}
+.legal h3 {
+  margin-top: 1.1rem;
+  font-weight: 600;
+  color: var(--color-mist-900);
+}
+.legal p,
+.legal ul,
+.legal ol {
+  margin-top: 0.75rem;
+  max-width: 68ch;
+}
+.legal ul {
+  list-style: disc;
+  padding-left: 1.3rem;
+}
+.legal ol {
+  list-style: decimal;
+  padding-left: 1.3rem;
+}
+.legal li + li {
+  margin-top: 0.35rem;
+}
+.legal a {
+  color: var(--color-leaf-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

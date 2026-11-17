@@ -1,0 +1,81 @@
+# Render Blueprint for a TEST / DEMO install of WaDesk on Render's free plan.
+# Free services sleep after 15 minutes idle (about a minute to wake), the free
+# database is deleted after 30 days, and uploaded media is lost on redeploy.
+# For real use, deploy with Docker on a server instead (see DEPLOY.md).
+
+databases:
+  - name: wadesk-db
+    plan: free
+    region: singapore
+    databaseName: wadesk
+    user: wadesk
+
+services:
+  - type: keyvalue
+    name: wadesk-redis
+    plan: free
+    region: singapore
+    maxmemoryPolicy: noeviction
+    ipAllowList: [] # only reachable from services in this account
+
+  - type: web
+    name: wadesk-mlk-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: apps/api
+    buildCommand: npm install
+    startCommand: node src/migrate.js && node src/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wadesk-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: wadesk-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY # 64 hex characters: openssl rand -hex 32
+        sync: false
+      - key: APP_URL # https://<web service>.onrender.com
+        sync: false
+      - key: API_PUBLIC_URL # https://<this service>.onrender.com
+        sync: false
+      # Free plan has no separate worker service, so queues run inside the API.
+      - key: EMBEDDED_WORKER
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      # The web app and API are on different onrender.com sites, so the login cookie must be cross-site.
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: ALLOW_SIGNUP
+        value: "true"
+      - key: META_GRAPH_VERSION
+        value: v24.0
+
+  - type: web
+    name: wadesk-mlk-web
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: apps/web
+    buildCommand: npm install && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
+    startCommand: node .next/standalone/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: NEXT_PUBLIC_API_URL # https://<api service>.onrender.com, used at build time
+        sync: false

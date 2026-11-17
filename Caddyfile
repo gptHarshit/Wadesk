@@ -1,0 +1,21 @@
+# Caddy terminates HTTPS for WaDesk and gets certificates from Let's Encrypt on its own.
+# APP_DOMAIN and API_DOMAIN come from .env. Both must already point at this server in DNS.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	encode gzip zstd
+	# Media uploads can be large; keep in step with MAX_UPLOAD_MB.
+	request_body {
+		max_size 25MB
+	}
+	# Socket.IO websockets pass through reverse_proxy without extra settings.
+	reverse_proxy api:4000
+}
