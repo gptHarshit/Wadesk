@@ -5,8 +5,73 @@
  */
 
 const PLACEHOLDER = /\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g;
-// Contact merge fields allowed inside a variable value, e.g. "{{name|there}}".
-const MERGE_FIELD = /\{\{\s*(name|phone|email)\s*(?:\|([^}]*))?\}\}/gi;
+// Contact merge fields allowed inside a variable value, e.g. "{{name|there}}" or "{{marks}}".
+// Built-in fields are name, phone and email; any other key is looked up in the contact's custom fields.
+const MERGE_FIELD = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:\|([^}]*))?\}\}/g;
+const BUILT_IN_FIELDS = ['name', 'phone', 'email'];
+export const MAX_FIELD_KEYS = 50;
+export const MAX_FIELD_VALUE = 500;
+
+/**
+ * Turn a column header or field name into the key used for custom fields:
+ * "Father Name" -> "father_name", "Due Amount (Rs)" -> "due_amount_rs". Returns '' if nothing usable is left.
+ */
+export function normalizeFieldKey(raw) {
+  let key = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  if (key && /^[0-9]/.test(key)) key = `f_${key}`;
+  return key;
+}
+
+/** Clean a custom-fields object: normalised keys, text values, empty values dropped, size-limited. */
+export function sanitizeAttributes(input) {
+  const out = {};
+  for (const [rawKey, rawValue] of Object.entries(input && typeof input === 'object' ? input : {})) {
+    const key = normalizeFieldKey(rawKey);
+    if (!key || BUILT_IN_FIELDS.includes(key)) continue;
+    if (rawValue === null || rawValue === undefined || typeof rawValue === 'object') continue;
+    const value = String(rawValue).trim().slice(0, MAX_FIELD_VALUE);
+    if (!value) continue;
+    if (!(key in out) && Object.keys(out).length >= MAX_FIELD_KEYS) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+/** The merge-field keys used across a campaign's variable values, e.g. ["name", "marks"]. */
+export function mergeFieldsUsed(variables) {
+  const keys = new Set();
+  const scan = (value) => {
+    for (const match of String(value ?? '').matchAll(MERGE_FIELD)) keys.add(match[1].toLowerCase());
+  };
+  const vars = variables ?? {};
+  Object.values(vars.header?.text ?? {}).forEach(scan);
+  Object.values(vars.body ?? {}).forEach(scan);
+  Object.values(vars.buttons ?? {}).forEach(scan);
+  return [...keys];
+}
+
+/** Merge fields in `value` that this contact has no data for and that have no "|fallback". */
+export function missingFields(value, contact) {
+  const missing = [];
+  for (const match of String(value ?? '').matchAll(MERGE_FIELD)) {
+    const key = match[1].toLowerCase();
+    const hasFallback = match[2] !== undefined && match[2].trim() !== '';
+    if (!hasFallback && !fieldValue(contact, key) && !missing.includes(key)) missing.push(key);
+  }
+  return missing;
+}
+
+function fieldValue(contact, key) {
+  const k = key.toLowerCase();
+  if (contact?.sample) return `[${k}]`; // validation/preview stand-in: every field "has" a value
+  const raw = BUILT_IN_FIELDS.includes(k) ? contact?.[k] : contact?.attributes?.[k];
+  return raw === null || raw === undefined ? '' : String(raw).trim();
+}
 
 const find = (components, type) => (components ?? []).find((c) => String(c.type).toUpperCase() === type);
 
@@ -59,10 +124,7 @@ export function describeTemplate(template) {
 /** Replace contact merge fields in one variable value. */
 export function resolveValue(value, contact) {
   return String(value ?? '')
-    .replace(MERGE_FIELD, (_, field, fallback) => {
-      const actual = contact?.[field.toLowerCase()];
-      return (actual && String(actual).trim()) || (fallback ?? '').trim();
-    })
+    .replace(MERGE_FIELD, (_, field, fallback) => fieldValue(contact, field) || (fallback ?? '').trim())
     .trim();
 }
 
@@ -90,6 +152,9 @@ export function buildTemplateMessage(template, variables, contact) {
   const components = [];
 
   const need = (value, label) => {
+    // A field with no data would leave a gap in the message ("scored  marks"), so treat it as an error.
+    const missing = missingFields(value, contact);
+    if (missing.length) throw new Error(`No ${missing.join(', ')} saved for this contact`);
     const resolved = resolveValue(value, contact);
     if (!resolved) throw new Error(`Template variable ${label} is empty for this contact`);
     return resolved;

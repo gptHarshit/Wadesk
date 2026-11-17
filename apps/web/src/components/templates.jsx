@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LuExternalLink, LuFile, LuImage, LuReply, LuSearch, LuVideo } from 'react-icons/lu';
 import { api } from '@/lib/api';
 import { useApi } from '@/lib/hooks';
+import { BUILT_IN_FIELDS, FieldChips } from './fields';
 import { Badge, Button, EmptyState, ErrorBlock, Input, LoadingBlock, Modal, cx, useFeedback } from './ui';
 
 export const emptyVariables = () => ({ header: { text: {} }, body: {}, buttons: {} });
@@ -15,10 +16,12 @@ export function TemplateStatus({ status }) {
   return <Badge tone={STATUS_TONES[status] ?? 'neutral'}>{label.charAt(0).toUpperCase() + label.slice(1)}</Badge>;
 }
 
-/** Swap contact merge fields ({{name|there}}) for a sample contact, for previews. */
+/** Swap contact merge fields ({{name|there}}, {{marks}}) for a contact's values, for previews. */
 function previewValue(value, contact) {
-  return String(value ?? '').replace(/\{\{\s*(name|phone|email)\s*(?:\|([^}]*))?\}\}/gi, (_, field, fallback) => {
-    return contact?.[field.toLowerCase()] || (fallback ?? '').trim() || `{{${field}}}`;
+  return String(value ?? '').replace(/\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:\|([^}]*))?\}\}/g, (_, field, fallback) => {
+    const key = field.toLowerCase();
+    const actual = BUILT_IN_FIELDS.includes(key) ? contact?.[key] : contact?.attributes?.[key];
+    return (actual && String(actual).trim()) || (fallback ?? '').trim() || `{{${field}}}`;
   });
 }
 
@@ -70,7 +73,7 @@ export function templateHasVariables(info) {
 }
 
 /** Inputs for every variable a template needs. `value` has the shape the API expects. */
-export function TemplateVariablesForm({ template, value, onChange, mergeFields = true }) {
+export function TemplateVariablesForm({ template, value, onChange, mergeFields = true, fields = BUILT_IN_FIELDS }) {
   const info = template.info;
   const setHeaderText = (key, v) => onChange({ ...value, header: { ...value.header, text: { ...value.header?.text, [key]: v } } });
   const setHeader = (key, v) => onChange({ ...value, header: { ...value.header, [key]: v } });
@@ -80,13 +83,20 @@ export function TemplateVariablesForm({ template, value, onChange, mergeFields =
   if (!templateHasVariables(info)) {
     return <p className="text-mist-600">This template has no variables. It will be sent exactly as shown.</p>;
   }
-  const nameHint = mergeFields ? 'Type {{name|there}} to insert each contact’s name, with “there” used when no name is saved.' : undefined;
+  const nameHint = mergeFields
+    ? 'Click a field to fill in each contact’s own value. {{name|there}} uses “there” when no name is saved.'
+    : undefined;
+  const append = (current, key) => `${current ?? ''}${current && !/\s$/.test(current) ? ' ' : ''}{{${key}}}`;
+  const chips = (current, set) => (mergeFields ? <FieldChips fields={fields} onPick={(key) => set(append(current, key))} /> : null);
 
   return (
     <div className="space-y-3">
       {info.header?.format === 'TEXT'
         ? info.header.params.map((key) => (
-            <Input key={`h${key}`} label={`Header {{${key}}}`} value={value.header?.text?.[key] ?? ''} onChange={(e) => setHeaderText(key, e.target.value)} />
+            <div key={`h${key}`}>
+              <Input label={`Header {{${key}}}`} value={value.header?.text?.[key] ?? ''} onChange={(e) => setHeaderText(key, e.target.value)} />
+              {chips(value.header?.text?.[key], (v) => setHeaderText(key, v))}
+            </div>
           ))
         : null}
       {info.header && info.header.format !== 'TEXT' ? (
@@ -105,13 +115,15 @@ export function TemplateVariablesForm({ template, value, onChange, mergeFields =
         </>
       ) : null}
       {info.body.params.map((key, index) => (
-        <Input
-          key={`b${key}`}
-          label={`Message {{${key}}}`}
-          value={value.body?.[key] ?? ''}
-          onChange={(e) => setBody(key, e.target.value)}
-          hint={index === 0 ? nameHint : undefined}
-        />
+        <div key={`b${key}`}>
+          <Input
+            label={`Message {{${key}}}`}
+            value={value.body?.[key] ?? ''}
+            onChange={(e) => setBody(key, e.target.value)}
+            hint={index === 0 ? nameHint : undefined}
+          />
+          {chips(value.body?.[key], (v) => setBody(key, v))}
+        </div>
       ))}
       {info.buttons
         .filter((b) => b.needsParam)
@@ -132,6 +144,8 @@ export function TemplateVariablesForm({ template, value, onChange, mergeFields =
 export function SendTemplateDialog({ open, onClose, conversation, onSent }) {
   const { toast } = useFeedback();
   const { data, error, loading, reload } = useApi(open ? '/templates' : null, { status: 'APPROVED' });
+  const { data: fieldData } = useApi(open ? '/contacts/fields' : null);
+  const fields = [...BUILT_IN_FIELDS, ...(fieldData?.items ?? []).map((f) => f.key)];
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [variables, setVariables] = useState(emptyVariables);
@@ -192,7 +206,7 @@ export function SendTemplateDialog({ open, onClose, conversation, onSent }) {
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             {selected.info.sendable ? (
-              <TemplateVariablesForm template={selected} value={variables} onChange={setVariables} />
+              <TemplateVariablesForm template={selected} value={variables} onChange={setVariables} fields={fields} />
             ) : (
               <p className="text-brick-700">{selected.info.reason}</p>
             )}

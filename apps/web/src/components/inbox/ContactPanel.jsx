@@ -5,6 +5,7 @@ import { LuMail, LuPhone, LuX } from 'react-icons/lu';
 import { api } from '@/lib/api';
 import { contactLabel, formatDate, formatPhone } from '@/lib/format';
 import { useApi } from '@/lib/hooks';
+import { FieldsEditor, sameAttributes, toAttributes, toFieldRows } from '../fields';
 import { Avatar, Button, ErrorBlock, IconButton, Input, LoadingBlock, TagPill, Textarea, Toggle, useFeedback } from '../ui';
 
 /** Right-hand panel in the inbox: who you're talking to, with quick edits. */
@@ -16,6 +17,7 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [fieldRows, setFieldRows] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
       setName(contact.name ?? '');
       setEmail(contact.email ?? '');
       setNotes(contact.notes ?? '');
+      setFieldRows(toFieldRows(contact.attributes));
     }
   }, [contact]);
 
@@ -40,7 +43,12 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
     }
   }
 
-  const dirty = contact && (name !== (contact.name ?? '') || email !== (contact.email ?? '') || notes !== (contact.notes ?? ''));
+  const dirty =
+    contact &&
+    (name !== (contact.name ?? '') ||
+      email !== (contact.email ?? '') ||
+      notes !== (contact.notes ?? '') ||
+      !sameAttributes(toAttributes(fieldRows), contact.attributes));
   const tagIds = contact?.tags.map((t) => t.id) ?? [];
   const availableTags = (tagData?.items ?? []).filter((t) => !tagIds.includes(t.id));
 
@@ -118,11 +126,12 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
-              save({ name, email, notes }, 'Contact saved');
+              save({ name, email, notes, attributes: toAttributes(fieldRows) }, 'Contact saved');
             }}
           >
             <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <FieldsEditor rows={fieldRows} onChange={setFieldRows} />
             <Textarea label="Notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything the team should know" />
             {dirty ? (
               <Button type="submit" size="sm" loading={saving}>

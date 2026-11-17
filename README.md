@@ -137,3 +137,13 @@ apps/web/src
   app/(app)                      dashboard, inbox, contacts, templates, campaigns, auto-replies, team, settings
   components/, lib/              UI kit, API client, auth and socket providers
 ```
+
+## Custom fields and personalised campaigns
+
+Any CSV column other than phone, name, email and tags is saved on the contact as a custom field
+(`Father Name` becomes `father_name`). Fields can also be added or edited on the contact form.
+
+In a campaign, click a field name under a template variable to insert it, e.g. `{{marks}}`.
+Add a fallback with `{{department|Team}}`. Before saving, the builder checks the real audience
+and shows rendered messages for a few contacts plus anyone missing data. Contacts missing a
+field without a fallback are not sent the message (their row shows the reason).

@@ -3,15 +3,77 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { LuArrowLeft } from 'react-icons/lu';
+import { LuArrowLeft, LuCircleAlert, LuCircleCheck } from 'react-icons/lu';
+import { BUILT_IN_FIELDS, fieldLabel } from '@/components/fields';
 import { TemplatePreview, TemplateVariablesForm, emptyVariables } from '@/components/templates';
 import { Button, ErrorBlock, Input, LoadingBlock, Notice, PageBody, PageHeader, Panel, Select, cx } from '@/components/ui';
+import { formatPhone } from '@/lib/format';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { plural } from '@/lib/format';
 import { useApi } from '@/lib/hooks';
 
 const SAMPLE_CONTACT = { name: 'Anil Kumar', phone: '919876543210', email: 'anil@example.com' };
+
+/** Dry run against the real audience: rendered messages for a few people, and who is missing data. */
+function CampaignCheck({ check, checking }) {
+  if (!check && !checking) return null;
+  if (!check) return <p className="text-sm text-mist-500">Checking your contacts…</p>;
+  if (check.error) return <Notice tone="red">{check.error}</Notice>;
+  const missing = Object.entries(check.missingByField ?? {}).filter(([, n]) => n > 0);
+  return (
+    <div className="space-y-3" aria-live="polite">
+      {check.failing ? (
+        <Notice tone="amber" title={`${plural(check.failing, 'contact')} will not get this message`}>
+          {missing.length ? (
+            <p>
+              Missing data:{' '}
+              {missing.map(([key, n], i) => (
+                <span key={key}>
+                  {i ? ', ' : ''}
+                  <strong>{fieldLabel(key)}</strong> for {plural(n, 'contact')}
+                </span>
+              ))}
+              . Add the data (or re-import the CSV), or give the field a fallback like {'{{'}
+              {missing[0][0]}|NA{'}}'}.
+            </p>
+          ) : null}
+          {check.problems?.length ? (
+            <ul className="mt-1 list-disc pl-4 text-sm">
+              {check.problems.slice(0, 5).map((p) => (
+                <li key={p.id}>
+                  {p.name || formatPhone(p.phone)}: {p.reason}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Notice>
+      ) : check.total ? (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-leaf-700">
+          <LuCircleCheck className="h-4 w-4" aria-hidden />
+          All {plural(check.total, 'contact')} have the data this message needs.
+        </p>
+      ) : null}
+      {check.samples?.length ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-mist-700">What real contacts will receive</p>
+          {check.samples.map((s) => (
+            <div key={s.id} className="rounded-lg border border-mist-200 bg-white px-3 py-2">
+              <p className="text-xs font-medium text-mist-500">{s.name || formatPhone(s.phone)}</p>
+              <p className="whitespace-pre-wrap text-sm text-mist-900">{s.text}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {check.truncated ? (
+        <p className="flex items-center gap-1.5 text-xs text-mist-500">
+          <LuCircleAlert className="h-3.5 w-3.5" aria-hidden />
+          Only the first 50,000 contacts were checked.
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function AudienceOption({ checked, onSelect, title, children }) {
   return (
@@ -35,6 +97,10 @@ export default function NewCampaignPage() {
   const { isManager, workspace } = useAuth();
   const templates = useApi('/templates', { status: 'APPROVED' });
   const tags = useApi('/tags');
+  const fieldData = useApi('/contacts/fields');
+  const fields = useMemo(() => [...BUILT_IN_FIELDS, ...(fieldData.data?.items ?? []).map((f) => f.key)], [fieldData.data]);
+  const [check, setCheck] = useState(null);
+  const [checking, setChecking] = useState(false);
   const [name, setName] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [variables, setVariables] = useState(emptyVariables);
@@ -66,6 +132,27 @@ export default function NewCampaignPage() {
       clearTimeout(timer);
     };
   }, [audience, audienceReady]);
+
+  // Dry run against real contacts whenever the message or audience changes.
+  useEffect(() => {
+    if (!templateId || !audienceReady) {
+      setCheck(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setChecking(true);
+    const timer = setTimeout(() => {
+      api('/campaigns/preview', { method: 'POST', body: { templateId, variables, audience } })
+        .then((res) => !cancelled && setCheck(res))
+        // A 400 here usually means a variable is still empty; the form shows that, so stay quiet.
+        .catch((err) => !cancelled && setCheck(err.status === 400 ? null : { error: err.message }))
+        .finally(() => !cancelled && setChecking(false));
+    }, 600);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [templateId, variables, audience, audienceReady]);
 
   async function submit(event) {
     event.preventDefault();
@@ -136,7 +223,7 @@ export default function NewCampaignPage() {
                     </option>
                   ))}
                 </Select>
-                {template ? <TemplateVariablesForm template={template} value={variables} onChange={setVariables} /> : null}
+                {template ? <TemplateVariablesForm template={template} value={variables} onChange={setVariables} fields={fields} /> : null}
               </Panel>
 
               <Panel className="space-y-3 p-5">
@@ -193,6 +280,9 @@ export default function NewCampaignPage() {
                 ) : (
                   <div className="thread-surface flex h-40 items-center justify-center rounded-lg text-mist-500">Choose a template to see it here</div>
                 )}
+                <div className="mt-4">
+                  <CampaignCheck check={check} checking={checking} />
+                </div>
               </div>
             </div>
           </form>

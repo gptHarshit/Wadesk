@@ -8,6 +8,7 @@ import { normalizePhone } from '../lib/phone.js';
 import { email, idParam, limit, nullableText, page, parse, uuid } from '../lib/validate.js';
 import { requireAuth, requireManager } from '../middleware/auth.js';
 import { CONTACT_SELECT, assertTags, getContact, setContactTags } from '../services/contacts.js';
+import { MAX_FIELD_KEYS, MAX_FIELD_VALUE, normalizeFieldKey, sanitizeAttributes } from '../services/templates.js';
 
 export const contactsRouter = Router();
 export const tagsRouter = Router();
@@ -24,6 +25,12 @@ async function defaultCountryCode(workspaceId) {
   const row = await db.one('SELECT default_country_code FROM workspaces WHERE id = $1', [workspaceId]);
   return row?.defaultCountryCode ?? null;
 }
+
+// Custom fields: { "marks": "92", "department": "Sales" }. Keys are normalised to lower_snake_case.
+const attributesSchema = z
+  .record(z.union([z.string().max(MAX_FIELD_VALUE), z.number(), z.null()]))
+  .optional()
+  .transform((v) => (v === undefined ? undefined : sanitizeAttributes(v)));
 
 const optionalEmail = z
   .union([email, z.literal(''), z.null()])
@@ -87,6 +94,7 @@ contactsRouter.post(
         email: optionalEmail,
         notes: nullableText(2000),
         tagIds: z.array(uuid).max(50).default([]),
+        attributes: attributesSchema,
       }),
       req.body,
     );
@@ -99,13 +107,29 @@ contactsRouter.post(
         throw conflict('A contact with this phone number already exists');
       }
       const row = await t.one(
-        'INSERT INTO contacts (workspace_id, phone, name, email, notes) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [req.user.workspaceId, phone, body.name ?? null, body.email ?? null, body.notes ?? null],
+        `INSERT INTO contacts (workspace_id, phone, name, email, notes, attributes)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id`,
+        [req.user.workspaceId, phone, body.name ?? null, body.email ?? null, body.notes ?? null, JSON.stringify(body.attributes ?? {})],
       );
       await setContactTags(t, row.id, tagIds);
       return row.id;
     });
     res.status(201).json(await getContact(req.user.workspaceId, id));
+  }),
+);
+
+/** Every custom field used in this workspace, with how many contacts have it. */
+contactsRouter.get(
+  '/fields',
+  asyncHandler(async (req, res) => {
+    const items = await db.many(
+      `SELECT k AS key, count(*)::int AS contact_count
+         FROM contacts ct, jsonb_object_keys(ct.attributes) AS k
+        WHERE ct.workspace_id = $1
+        GROUP BY k ORDER BY k`,
+      [req.user.workspaceId],
+    );
+    res.json({ items });
   }),
 );
 
@@ -135,10 +159,12 @@ contactsRouter.patch(
         notes: nullableText(2000),
         optedOut: z.boolean().optional(),
         tagIds: z.array(uuid).max(50).optional(),
+        // Replaces all custom fields; send the full set.
+        attributes: attributesSchema,
       }),
       req.body,
     );
-    const existing = await db.one('SELECT id, phone, name, email, notes, opted_out FROM contacts WHERE workspace_id = $1 AND id = $2', [
+    const existing = await db.one('SELECT id, phone, name, email, notes, opted_out, attributes FROM contacts WHERE workspace_id = $1 AND id = $2', [
       req.user.workspaceId,
       id,
     ]);
@@ -160,7 +186,9 @@ contactsRouter.patch(
         if (clash) throw conflict('Another contact already has this phone number');
       }
       await t.exec(
-        `UPDATE contacts SET phone = $2, name = $3, email = $4, notes = $5, opted_out = $6, updated_at = now() WHERE id = $1`,
+        `UPDATE contacts SET phone = $2, name = $3, email = $4, notes = $5, opted_out = $6, attributes = $7::jsonb,
+                updated_at = now()
+          WHERE id = $1`,
         [
           id,
           phone,
@@ -168,6 +196,7 @@ contactsRouter.patch(
           body.email === undefined ? existing.email : body.email,
           body.notes === undefined ? existing.notes : body.notes,
           body.optedOut ?? existing.optedOut,
+          JSON.stringify(body.attributes === undefined ? existing.attributes ?? {} : body.attributes),
         ],
       );
       if (body.tagIds) await setContactTags(t, id, await assertTags(t, req.user.workspaceId, body.tagIds));
@@ -198,10 +227,13 @@ const pick = (record, headers) => {
   return '';
 };
 
+const KNOWN_HEADERS = new Set([...PHONE_HEADERS, ...NAME_HEADERS, ...EMAIL_HEADERS, ...TAG_HEADERS]);
+
 /**
  * Import contacts from a CSV with a header row. Needs a phone column; name,
- * email and tags (separated by ";" or "|") are optional. Existing contacts are
- * updated, never duplicated.
+ * email and tags (separated by ";" or "|") are optional. Every other column is
+ * saved as a custom field (e.g. "Father Name" -> father_name) that campaigns can
+ * merge into templates. Existing contacts are updated, never duplicated.
  */
 contactsRouter.post(
   '/import',
@@ -223,10 +255,14 @@ contactsRouter.post(
     const fixedTagIds = await assertTags(db, workspaceId, extra.tagIds);
 
     let records;
+    let headers = [];
     try {
       records = parseCsv(req.file.buffer.toString('utf8'), {
         bom: true,
-        columns: (header) => header.map((h) => String(h).trim().toLowerCase()),
+        columns: (header) => {
+          headers = header.map((h) => String(h).trim().toLowerCase());
+          return headers;
+        },
         skip_empty_lines: true,
         trim: true,
         relax_column_count: true,
@@ -237,7 +273,17 @@ contactsRouter.post(
     if (!records.length) throw badRequest('The file has no rows');
     if (records.length > MAX_IMPORT_ROWS) throw badRequest(`A file can have at most ${MAX_IMPORT_ROWS.toLocaleString()} rows`);
     if (!PHONE_HEADERS.some((h) => h in records[0])) {
-      throw badRequest('The file needs a column named "phone" (plus optional "name", "email" and "tags")');
+      throw badRequest('The file needs a column named "phone" (plus optional "name", "email", "tags" and any other columns)');
+    }
+
+    // Every other column becomes a custom field.
+    const fieldColumns = []; // [{ header, key }]
+    for (const header of headers) {
+      if (!header || KNOWN_HEADERS.has(header)) continue;
+      const key = normalizeFieldKey(header);
+      if (!key || ['name', 'phone', 'email'].includes(key) || fieldColumns.some((c) => c.key === key)) continue;
+      if (fieldColumns.length >= MAX_FIELD_KEYS) break;
+      fieldColumns.push({ header, key });
     }
 
     const countryCode = await defaultCountryCode(workspaceId);
@@ -262,11 +308,17 @@ contactsRouter.post(
         return;
       }
       const rawEmail = pick(record, EMAIL_HEADERS).toLowerCase();
+      const attributes = {};
+      for (const { header, key } of fieldColumns) {
+        const value = String(record[header] ?? '').trim();
+        if (value) attributes[key] = value.slice(0, MAX_FIELD_VALUE);
+      }
       rows.set(phone, {
         phone,
         name: pick(record, NAME_HEADERS).slice(0, 120),
         email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail.slice(0, 254) : '',
         tags,
+        attributes,
       });
     });
 
@@ -294,15 +346,20 @@ contactsRouter.post(
       for (let i = 0; i < list.length; i += IMPORT_CHUNK) {
         const chunk = list.slice(i, i + IMPORT_CHUNK);
         const saved = await t.many(
-          `INSERT INTO contacts (workspace_id, phone, name, email)
-           SELECT $1::uuid, x.phone, NULLIF(x.name, ''), NULLIF(x.email, '')
-             FROM unnest($2::text[], $3::text[], $4::text[]) AS x(phone, name, email)
+          `INSERT INTO contacts (workspace_id, phone, name, email, attributes)
+           SELECT $1::uuid, x.phone, NULLIF(x.name, ''), NULLIF(x.email, ''), COALESCE(x.attributes, '{}'::jsonb)
+             FROM jsonb_to_recordset($2::jsonb) AS x(phone text, name text, email text, attributes jsonb)
            ON CONFLICT (workspace_id, phone) WHERE phone IS NOT NULL DO UPDATE
              SET name = COALESCE(EXCLUDED.name, contacts.name),
                  email = COALESCE(EXCLUDED.email, contacts.email),
+                 -- New values win; fields not in this file are kept.
+                 attributes = contacts.attributes || EXCLUDED.attributes,
                  updated_at = now()
            RETURNING id, phone, (xmax = 0) AS inserted`,
-          [workspaceId, chunk.map((r) => r.phone), chunk.map((r) => r.name), chunk.map((r) => r.email)],
+          [
+            workspaceId,
+            JSON.stringify(chunk.map((r) => ({ phone: r.phone, name: r.name, email: r.email, attributes: r.attributes }))),
+          ],
         );
         const idByPhone = new Map(saved.map((s) => [s.phone, s.id]));
         created += saved.filter((s) => s.inserted).length;
@@ -334,6 +391,7 @@ contactsRouter.post(
       invalid,
       duplicatesInFile: records.length - invalid - list.length,
       totalRows: records.length,
+      fields: fieldColumns.map((c) => c.key),
       errors,
     });
   }),

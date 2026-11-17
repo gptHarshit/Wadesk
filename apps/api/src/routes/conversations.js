@@ -39,7 +39,7 @@ async function loadThread(req) {
   const { id } = parse(idParam, req.params);
   const row = await db.one(
     `SELECT c.id, c.status, c.last_inbound_at,
-            ct.id AS contact_id, ct.phone, ct.wa_user_id, ct.name, ct.email
+            ct.id AS contact_id, ct.phone, ct.wa_user_id, ct.name, ct.email, ct.attributes
        FROM conversations c JOIN contacts ct ON ct.id = c.contact_id
       WHERE c.workspace_id = $1 AND c.id = $2`,
     [req.user.workspaceId, id],
@@ -49,7 +49,14 @@ async function loadThread(req) {
     id: row.id,
     status: row.status,
     lastInboundAt: row.lastInboundAt,
-    contact: { id: row.contactId, phone: row.phone, waUserId: row.waUserId, name: row.name, email: row.email },
+    contact: {
+      id: row.contactId,
+      phone: row.phone,
+      waUserId: row.waUserId,
+      name: row.name,
+      email: row.email,
+      attributes: row.attributes ?? {},
+    },
   };
 }
 

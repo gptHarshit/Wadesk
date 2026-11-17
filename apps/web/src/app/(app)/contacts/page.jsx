@@ -25,6 +25,7 @@ import {
   cx,
   useFeedback,
 } from '@/components/ui';
+import { FieldsEditor, toAttributes, toFieldRows } from '@/components/fields';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatPhone, plural } from '@/lib/format';
@@ -60,9 +61,9 @@ function TagPicker({ tags, value, onChange }) {
   );
 }
 
-function ContactDialog({ open, contact, tags, onClose, onSaved }) {
+function ContactDialog({ open, contact, tags, fieldKeys, onClose, onSaved }) {
   const { toast } = useFeedback();
-  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '', optedOut: false, tagIds: [] });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '', optedOut: false, tagIds: [], fields: [] });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
@@ -79,8 +80,9 @@ function ContactDialog({ open, contact, tags, onClose, onSaved }) {
             notes: contact.notes ?? '',
             optedOut: contact.optedOut,
             tagIds: contact.tags.map((t) => t.id),
+            fields: toFieldRows(contact.attributes),
           }
-        : { name: '', phone: '', email: '', notes: '', optedOut: false, tagIds: [] },
+        : { name: '', phone: '', email: '', notes: '', optedOut: false, tagIds: [], fields: [] },
     );
   }, [open, contact]);
 
@@ -89,7 +91,7 @@ function ContactDialog({ open, contact, tags, onClose, onSaved }) {
     setBusy(true);
     setError(null);
     try {
-      const body = { name: form.name, email: form.email, notes: form.notes, tagIds: form.tagIds };
+      const body = { name: form.name, email: form.email, notes: form.notes, tagIds: form.tagIds, attributes: toAttributes(form.fields) };
       // Contacts known only by WhatsApp username have no phone number to send.
       if (form.phone.trim()) body.phone = form.phone;
       if (contact) body.optedOut = form.optedOut;
@@ -139,6 +141,7 @@ function ContactDialog({ open, contact, tags, onClose, onSaved }) {
           <p className="mb-1.5 text-sm font-medium text-mist-800">Tags</p>
           <TagPicker tags={tags} value={form.tagIds} onChange={(tagIds) => setForm((f) => ({ ...f, tagIds }))} />
         </div>
+        <FieldsEditor rows={form.fields} onChange={(fields) => setForm((f) => ({ ...f, fields }))} suggestions={fieldKeys} />
         <Textarea label="Notes" value={form.notes} onChange={set('notes')} />
         {contact ? (
           <div className="flex items-center justify-between gap-3 rounded-md bg-mist-50 px-3 py-2.5">
@@ -213,6 +216,11 @@ function ImportDialog({ open, tags, onClose, onImported }) {
             {result.totalRows.toLocaleString()} rows read.
             {result.duplicatesInFile ? ` ${plural(result.duplicatesInFile, 'repeated number')} in the file skipped.` : ''}
           </Notice>
+          {result.fields?.length ? (
+            <Notice tone="blue" title="Custom fields saved">
+              {result.fields.join(', ')}. Use them in a campaign by clicking the field name under a message variable.
+            </Notice>
+          ) : null}
           {result.invalid ? (
             <Notice tone="amber" title={`${plural(result.invalid, 'row')} skipped`}>
               <ul className="mt-1 list-disc pl-4">
@@ -231,11 +239,11 @@ function ImportDialog({ open, tags, onClose, onImported }) {
           {error ? <Notice tone="red">{error.message}</Notice> : null}
           <p className="text-mist-700">
             The first row must be headings. A <strong>phone</strong> column is required; <strong>name</strong>, <strong>email</strong> and{' '}
-            <strong>tags</strong> are optional. Separate several tags with a semicolon. Numbers already in your contacts are updated, not
-            duplicated.
+            <strong>tags</strong> are optional. Separate several tags with a semicolon. <strong>Any other column</strong> is saved as a custom
+            field you can put into campaign messages. Numbers already in your contacts are updated, not duplicated.
           </p>
           <pre className="overflow-x-auto rounded-md bg-mist-100 px-3 py-2 text-sm text-mist-700">
-            {'name,phone,email,tags\nAnil Kumar,+91 98765 43210,anil@example.com,VIP;Wholesale'}
+            {'name,phone,tags,department,joining_date\nAnil Kumar,+91 98765 43210,Staff,Sales,12 Jan 2024'}
           </pre>
           <input ref={input} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           <button
@@ -339,11 +347,14 @@ export default function ContactsPage() {
   const { data, error, loading, reload } = useApi('/contacts', { search, tagId, page, limit: LIMIT });
   const { data: tagData, reload: reloadTags } = useApi('/tags');
   const tags = tagData?.items ?? [];
+  const { data: fieldData, reload: reloadFields } = useApi('/contacts/fields');
+  const fieldKeys = (fieldData?.items ?? []).map((f) => f.key);
 
   useEffect(() => setPage(1), [search, tagId]);
   const refresh = () => {
     reload({ quiet: true });
     reloadTags({ quiet: true });
+    reloadFields({ quiet: true });
   };
 
   async function message(contact) {
@@ -399,6 +410,23 @@ export default function ContactsPage() {
           {c.optedOut ? <Badge tone="red">Opted out</Badge> : null}
         </div>
       ),
+    },
+    {
+      key: 'fields',
+      header: 'Details',
+      render: (c) => {
+        const entries = Object.entries(c.attributes ?? {});
+        if (!entries.length) return <span className="text-sm text-mist-400">None</span>;
+        return (
+          <p className="max-w-[16rem] truncate text-sm text-mist-700" title={entries.map(([k, v]) => `${k}: ${v}`).join('\n')}>
+            {entries
+              .slice(0, 2)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ')}
+            {entries.length > 2 ? <span className="text-mist-500"> +{entries.length - 2} more</span> : null}
+          </p>
+        );
+      },
     },
     { key: 'created', header: 'Added', render: (c) => <span className="whitespace-nowrap text-sm text-mist-600">{formatDate(c.createdAt)}</span> },
     {
@@ -507,7 +535,14 @@ export default function ContactsPage() {
         </Panel>
       </PageBody>
 
-      <ContactDialog open={dialog?.type === 'contact'} contact={dialog?.contact ?? null} tags={tags} onClose={() => setDialog(null)} onSaved={refresh} />
+      <ContactDialog
+        open={dialog?.type === 'contact'}
+        contact={dialog?.contact ?? null}
+        tags={tags}
+        fieldKeys={fieldKeys}
+        onClose={() => setDialog(null)}
+        onSaved={refresh}
+      />
       <ImportDialog open={dialog?.type === 'import'} tags={tags} onClose={() => setDialog(null)} onImported={refresh} />
       <TagsDialog open={dialog?.type === 'tags'} tags={tags} isManager={isManager} onClose={() => setDialog(null)} onChanged={refresh} />
     </>

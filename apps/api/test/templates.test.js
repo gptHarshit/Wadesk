@@ -51,7 +51,7 @@ test('buildTemplateMessage produces the send-API components and the rendered tex
 });
 
 test('a missing variable is an error, never an empty parameter', () => {
-  assert.throws(() => buildTemplateMessage(order, { header: { text: { 1: 'x' } }, body: { 1: '{{name}}', 2: 'x' }, buttons: { 0: 'x' } }, { name: '' }), /empty/);
+  assert.throws(() => buildTemplateMessage(order, { header: { text: { 1: 'x' } }, body: { 1: '{{name}}', 2: 'x' }, buttons: { 0: 'x' } }, { name: '' }), /No name saved/);
   assert.throws(() => buildTemplateMessage(order, { body: { 1: 'a', 2: 'b' } }, {}), /header/);
 });
 
@@ -76,4 +76,62 @@ test('templates without variables send no components', () => {
 test('sanitizeVariables drops anything that is not a simple value', () => {
   const clean = sanitizeVariables({ body: { 1: 'a', 2: { evil: true }, 3: 5 }, header: { text: { 1: 'h' }, link: ' https://x.test/i.png ' }, buttons: null, extra: 'x' });
   assert.deepEqual(clean, { header: { text: { 1: 'h' }, link: 'https://x.test/i.png' }, body: { 1: 'a', 3: '5' }, buttons: {} });
+});
+
+/* ----------------------------- Custom fields ----------------------------- */
+
+import { mergeFieldsUsed, missingFields, normalizeFieldKey, sanitizeAttributes } from '../src/services/templates.js';
+
+const result = {
+  parameterFormat: 'POSITIONAL',
+  components: [{ type: 'BODY', text: 'Dear {{1}}, {{2}} scored {{3}} marks.' }],
+};
+const resultVars = { body: { 1: '{{father_name|Parent}}', 2: '{{name}}', 3: '{{marks}}' } };
+
+test('normalizeFieldKey turns headers into safe keys', () => {
+  assert.equal(normalizeFieldKey('Father Name'), 'father_name');
+  assert.equal(normalizeFieldKey('  Due Amount (Rs) '), 'due_amount_rs');
+  assert.equal(normalizeFieldKey('2024 Marks'), 'f_2024_marks');
+  assert.equal(normalizeFieldKey('---'), '');
+});
+
+test('sanitizeAttributes keeps text values and drops empties and built-ins', () => {
+  assert.deepEqual(sanitizeAttributes({ Marks: 92, 'Father Name': ' Suresh ', notes: '', name: 'x', obj: {} }), {
+    marks: '92',
+    father_name: 'Suresh',
+  });
+});
+
+test('custom fields are merged into template variables', () => {
+  const contact = { name: 'Riya', attributes: { father_name: 'Suresh Sharma', marks: '92' } };
+  const built = buildTemplateMessage(result, resultVars, contact);
+  assert.equal(built.text, 'Dear Suresh Sharma, Riya scored 92 marks.');
+  assert.deepEqual(
+    built.components[0].parameters.map((p) => p.text),
+    ['Suresh Sharma', 'Riya', '92'],
+  );
+});
+
+test('a fallback covers a missing custom field', () => {
+  const built = buildTemplateMessage(result, resultVars, { name: 'Aman', attributes: { marks: '67' } });
+  assert.equal(built.text, 'Dear Parent, Aman scored 67 marks.');
+});
+
+test('a missing field without fallback is reported by name', () => {
+  assert.throws(() => buildTemplateMessage(result, resultVars, { name: 'Aman', attributes: {} }), /No marks saved/);
+  // Even when the rest of the value would still have text in it.
+  const partial = { body: { 1: 'Parent', 2: '{{name}}', 3: 'about {{marks}}' } };
+  assert.throws(() => buildTemplateMessage(result, partial, { name: 'Aman', attributes: {} }), /No marks saved/);
+});
+
+test('the sample stand-in satisfies every field', () => {
+  const built = buildTemplateMessage(result, resultVars, { sample: true });
+  assert.equal(built.text, 'Dear [father_name], [name] scored [marks] marks.');
+});
+
+test('mergeFieldsUsed and missingFields', () => {
+  assert.deepEqual(mergeFieldsUsed(resultVars).sort(), ['father_name', 'marks', 'name']);
+  assert.deepEqual(missingFields('{{marks}} {{class|NA}} {{name}}', { name: 'A', attributes: {} }), ['marks']);
+  // Numbers like {{1}} inside a value are not merge fields.
+  assert.equal(resolveValue('Code {{1}}', { name: 'A' }), 'Code {{1}}');
 });

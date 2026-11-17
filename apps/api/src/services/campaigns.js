@@ -4,7 +4,7 @@ import { campaignMessageQueue } from '../queues.js';
 import { publish } from '../realtime.js';
 import { ensureConversation, getConversation, getMessage, previewFor, touchConversation } from './conversations.js';
 import { rememberUserId } from './outbound.js';
-import { buildTemplateMessage } from './templates.js';
+import { buildTemplateMessage, missingFields, mergeFieldsUsed } from './templates.js';
 import { WhatsAppError, getAccount, sendTemplate } from './whatsapp.js';
 
 const ENQUEUE_BATCH = 1000;
@@ -42,6 +42,56 @@ export async function countAudience(workspaceId, audience) {
   const { sql, params } = audienceQuery(workspaceId, audience);
   const row = await db.one(`SELECT count(*)::int AS count FROM (${sql}) a`, params);
   return row.count;
+}
+
+const PREVIEW_SCAN_LIMIT = 50_000;
+
+/**
+ * Dry run of a campaign against its audience: renders a few real messages and
+ * finds contacts that are missing data the variables need. Sends nothing.
+ */
+export async function previewCampaign(workspaceId, template, variables, audience) {
+  const { sql, params } = audienceQuery(workspaceId, audience);
+  const contacts = await db.many(
+    `SELECT ct.id, ct.name, ct.phone, ct.email, ct.attributes
+       FROM contacts ct WHERE ct.id IN (${sql})
+      ORDER BY ct.name NULLS LAST, ct.phone
+      LIMIT ${PREVIEW_SCAN_LIMIT}`,
+    params,
+  );
+
+  const fields = mergeFieldsUsed(variables);
+  const allValues = [
+    ...Object.values(variables?.header?.text ?? {}),
+    ...Object.values(variables?.body ?? {}),
+    ...Object.values(variables?.buttons ?? {}),
+  ].join(' ');
+
+  const samples = [];
+  const problems = [];
+  const missingByField = Object.fromEntries(fields.map((f) => [f, 0]));
+  let ready = 0;
+  for (const contact of contacts) {
+    for (const key of missingFields(allValues, contact)) missingByField[key] = (missingByField[key] ?? 0) + 1;
+    try {
+      const built = buildTemplateMessage(template, variables, contact);
+      ready += 1;
+      if (samples.length < 3) samples.push({ id: contact.id, name: contact.name, phone: contact.phone, text: built.text });
+    } catch (err) {
+      if (problems.length < 20) problems.push({ id: contact.id, name: contact.name, phone: contact.phone, reason: err.message });
+    }
+  }
+
+  return {
+    total: contacts.length,
+    ready,
+    failing: contacts.length - ready,
+    fields,
+    missingByField,
+    samples,
+    problems,
+    truncated: contacts.length >= PREVIEW_SCAN_LIMIT,
+  };
 }
 
 async function notify(workspaceId, campaignId) {
@@ -121,7 +171,7 @@ export async function sendCampaignMessage({ recipientId }, { isLastAttempt = fal
   const row = await db.one(
     `SELECT r.id, r.status, r.campaign_id, r.workspace_id,
             c.status AS campaign_status, c.variables, c.template_name, c.template_language,
-            ct.id AS contact_id, ct.phone, ct.wa_user_id, ct.name, ct.email, ct.opted_out,
+            ct.id AS contact_id, ct.phone, ct.wa_user_id, ct.name, ct.email, ct.opted_out, ct.attributes,
             t.components, t.parameter_format
        FROM campaign_recipients r
        JOIN campaigns c ON c.id = r.campaign_id
@@ -135,7 +185,14 @@ export async function sendCampaignMessage({ recipientId }, { isLastAttempt = fal
   if (row.optedOut) return closeRecipient(row, 'skipped', null, 'Contact opted out');
   if (!row.components) return closeRecipient(row, 'failed', null, 'The template no longer exists');
 
-  const contact = { id: row.contactId, phone: row.phone, waUserId: row.waUserId, name: row.name, email: row.email };
+  const contact = {
+    id: row.contactId,
+    phone: row.phone,
+    waUserId: row.waUserId,
+    name: row.name,
+    email: row.email,
+    attributes: row.attributes ?? {},
+  };
   let built;
   try {
     built = buildTemplateMessage({ components: row.components, parameterFormat: row.parameterFormat }, row.variables, contact);

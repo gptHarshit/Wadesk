@@ -3,7 +3,7 @@ import { badRequest } from '../lib/errors.js';
 import { logger } from '../logger.js';
 
 export const CONTACT_SELECT = `
-  SELECT ct.id, ct.name, ct.phone, ct.wa_user_id, ct.wa_username, ct.email, ct.notes, ct.opted_out,
+  SELECT ct.id, ct.name, ct.phone, ct.wa_user_id, ct.wa_username, ct.email, ct.notes, ct.opted_out, ct.attributes,
          ct.created_at, ct.updated_at,
          COALESCE((SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name)
                      FROM contact_tags x JOIN tags t ON t.id = x.tag_id

@@ -5,7 +5,7 @@ import { asyncHandler, badRequest, notFound } from '../lib/errors.js';
 import { idParam, limit, page, parse, uuid } from '../lib/validate.js';
 import { requireAuth, requireManager } from '../middleware/auth.js';
 import { campaignQueue } from '../queues.js';
-import { CAMPAIGN_SELECT, cancelCampaign, countAudience } from '../services/campaigns.js';
+import { CAMPAIGN_SELECT, cancelCampaign, countAudience, previewCampaign } from '../services/campaigns.js';
 import { assertTags } from '../services/contacts.js';
 import { buildTemplateMessage, sanitizeVariables } from '../services/templates.js';
 import { requireAccount } from '../services/whatsapp.js';
@@ -18,7 +18,8 @@ const audienceSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tags'), tagIds: z.array(uuid).min(1, 'Pick at least one tag').max(50) }),
 ]);
 
-const SAMPLE_CONTACT = { name: 'Sample', phone: '10000000000', email: 'sample@example.com' };
+// Stand-in used to check a campaign's variables: every merge field resolves to "[field]".
+const SAMPLE_CONTACT = { sample: true };
 
 async function getCampaign(workspaceId, id) {
   return db.one(`${CAMPAIGN_SELECT} WHERE c.workspace_id = $1 AND c.id = $2`, [workspaceId, id]);
@@ -47,6 +48,28 @@ campaignsRouter.post(
     const audience = parse(audienceSchema, req.body?.audience);
     if (audience.type === 'tags') await assertTags(db, req.user.workspaceId, audience.tagIds);
     res.json({ count: await countAudience(req.user.workspaceId, audience) });
+  }),
+);
+
+/** Dry run: real rendered messages for a few recipients, plus who is missing data. Sends nothing. */
+campaignsRouter.post(
+  '/preview',
+  asyncHandler(async (req, res) => {
+    const body = parse(z.object({ templateId: uuid, variables: z.unknown().optional(), audience: audienceSchema }), req.body);
+    const workspaceId = req.user.workspaceId;
+    const template = await db.one(
+      'SELECT id, name, language, status, components, parameter_format FROM templates WHERE workspace_id = $1 AND id = $2',
+      [workspaceId, body.templateId],
+    );
+    if (!template) throw notFound('Template');
+    if (body.audience.type === 'tags') body.audience.tagIds = await assertTags(db, workspaceId, body.audience.tagIds);
+    const variables = sanitizeVariables(body.variables);
+    try {
+      buildTemplateMessage(template, variables, SAMPLE_CONTACT);
+    } catch (err) {
+      throw badRequest(err.message);
+    }
+    res.json(await previewCampaign(workspaceId, template, variables, body.audience));
   }),
 );
 
