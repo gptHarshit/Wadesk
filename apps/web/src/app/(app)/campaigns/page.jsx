@@ -60,7 +60,15 @@ export default function CampaignsPage() {
       align: 'right',
       render: (c) => <span className="tabular-nums text-mist-700">{c.stats.sent ? `${percent(c.stats.read, c.stats.sent)}%` : '—'}</span>,
     },
-    { key: 'date', header: 'Started', render: (c) => <span className="whitespace-nowrap text-sm text-mist-600">{c.startedAt ? formatDateTime(c.startedAt) : 'Not yet'}</span> },
+    {
+      key: 'date',
+      header: 'Started',
+      render: (c) => (
+        <span className="whitespace-nowrap text-sm text-mist-600">
+          {c.startedAt ? formatDateTime(c.startedAt) : c.status === 'scheduled' && c.scheduledAt ? `Goes out ${formatDateTime(c.scheduledAt)}` : 'Not yet'}
+        </span>
+      ),
+    },
   ];
 
   return (

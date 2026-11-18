@@ -4,6 +4,7 @@ import { Badge } from './ui';
 
 const STATUS = {
   draft: { tone: 'neutral', label: 'Draft' },
+  scheduled: { tone: 'blue', label: 'Scheduled' },
   queued: { tone: 'amber', label: 'Starting' },
   sending: { tone: 'amber', label: 'Sending' },
   completed: { tone: 'green', label: 'Completed' },

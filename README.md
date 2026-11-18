@@ -5,8 +5,9 @@ A shared WhatsApp inbox and campaign tool for a team, built on the official What
 - **Team inbox**: every chat in one place, updating live, with assignment, open/closed status, search and delivery ticks.
 - **Messages**: text, images and documents in both directions; approved templates when the 24-hour reply window is closed.
 - **Contacts**: add, edit, tag, search, and import from CSV.
-- **Campaigns**: send one approved template to a tag or to everyone, rate limited, with sent/delivered/read/failed reports.
-- **Keyword auto-replies**, a **dashboard**, and **team roles** (owner, admin, agent).
+- **Campaigns**: send one approved template to a tag or to everyone, now or at a scheduled time, rate limited, with sent/delivered/read/failed reports you can download as CSV.
+- **Auto-replies**: keyword rules (several keywords per rule) and an away message outside office hours.
+- **Saved replies** the whole team can drop into a chat, a **dashboard**, and **team roles** (owner, admin, agent).
 - **Workspaces**: each business's data is separate, so the same install can serve several businesses.
 
 ## How it fits together
@@ -113,6 +114,8 @@ Meta only delivers webhooks to a public HTTPS address. On your own machine, run 
 - **Templates** are created and approved in WhatsApp Manager. WaDesk syncs and sends them. Templates with OTP, catalogue or flow buttons are listed but can't be sent from here yet.
 - **Campaign variables** accept `{{name|there}}`, `{{phone}}` and `{{email}}`, filled in per contact; the text after `|` is used when the contact has no value.
 - **CSV import** needs a `phone` column; `name`, `email` and `tags` (separated by `;`) are optional. Existing numbers are updated, not duplicated.
+- **Scheduled campaigns** are launched by the worker, which checks every 30 seconds. On a host that puts the server to sleep when idle (Render's free plan), a campaign goes out when the server next wakes, so it can be late; use an always-on plan for exact times.
+- **Away message** goes to each chat at most once every 12 hours, after any keyword reply, and not to someone who just sent `STOP`.
 - **Roles.** Agents work the inbox and contacts. Admins also manage settings, team, campaigns and auto-replies. Only the owner manages admins.
 
 ## Security notes

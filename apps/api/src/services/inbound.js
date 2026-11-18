@@ -4,7 +4,7 @@ import { isBsuid, normalizePhone } from '../lib/phone.js';
 import { saveFile } from '../lib/storage.js';
 import { logger } from '../logger.js';
 import { publish } from '../realtime.js';
-import { maybeAutoReply } from './autoReply.js';
+import { maybeAutoReply, maybeAwayReply } from './autoReply.js';
 import { upsertInboundContact } from './contacts.js';
 import { ensureConversation, getConversation, getMessage, previewFor, touchConversation } from './conversations.js';
 import { downloadMedia, getAccount } from './whatsapp.js';
@@ -166,18 +166,29 @@ async function handleInboundMessage(workspaceId, account, m, profiles) {
   ]);
   await publish(workspaceId, 'message:new', { message, conversation });
 
-  if (parsed.type !== 'text' || !parsed.body) return;
-  const word = parsed.body.trim().toLowerCase();
+  const text = parsed.type === 'text' && parsed.body ? parsed.body : null;
+  const word = text ? text.trim().toLowerCase() : '';
   if (OPT_OUT_WORDS.has(word) || OPT_IN_WORDS.has(word)) {
     await db.exec('UPDATE contacts SET opted_out = $2, updated_at = now() WHERE id = $1', [
       stored.contact.id,
       OPT_OUT_WORDS.has(word),
     ]);
   }
+  if (text) {
+    try {
+      await maybeAutoReply({ workspaceId, conversationId: stored.conversationId, contact: stored.contact, text });
+    } catch (err) {
+      logger.error({ err, workspaceId }, 'Auto-reply failed');
+    }
+  }
+
+  // Outside office hours, also say when we'll answer. Not for "stop" (the customer is leaving) or old webhooks.
+  if (OPT_OUT_WORDS.has(word) || parsed.type === 'unsupported') return;
+  if (Date.now() - receivedAt.getTime() > 60 * 60 * 1000) return;
   try {
-    await maybeAutoReply({ workspaceId, conversationId: stored.conversationId, contact: stored.contact, text: parsed.body });
+    await maybeAwayReply({ workspaceId, conversationId: stored.conversationId, contact: stored.contact, at: receivedAt });
   } catch (err) {
-    logger.error({ err, workspaceId }, 'Auto-reply failed');
+    logger.error({ err, workspaceId }, 'Away message failed');
   }
 }
 

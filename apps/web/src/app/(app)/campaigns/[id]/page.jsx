@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { LuArrowLeft, LuBan, LuSend, LuTrash2 } from 'react-icons/lu';
+import { LuArrowLeft, LuBan, LuClock, LuDownload, LuSend, LuTrash2 } from 'react-icons/lu';
 import { CampaignProgress, CampaignStatus, isRunning } from '@/components/campaigns';
 import { TemplatePreview } from '@/components/templates';
-import { Badge, Button, EmptyState, ErrorBlock, LoadingBlock, Notice, PageBody, PageHeader, Pagination, Panel, Table, Tabs, useFeedback } from '@/components/ui';
+import { Badge, Button, EmptyState, ErrorBlock, Input, LoadingBlock, Modal, Notice, PageBody, PageHeader, Pagination, Panel, Table, Tabs, useFeedback } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime, formatPhone, percent, plural } from '@/lib/format';
@@ -26,11 +26,112 @@ function Stat({ label, value, share }) {
   );
 }
 
-function Recipients({ campaignId, refreshKey }) {
+const pad = (n) => String(n).padStart(2, '0');
+/** A Date as the value a datetime-local input expects, in this computer's time. */
+const localInputValue = (date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+/** Pick when a campaign should go out. */
+function ScheduleDialog({ open, campaign, onClose, onScheduled }) {
+  const { toast } = useFeedback();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    const start = campaign.scheduledAt ? new Date(campaign.scheduledAt) : new Date(Date.now() + 60 * 60 * 1000);
+    if (!campaign.scheduledAt) start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
+    setValue(localInputValue(start));
+  }, [open, campaign.scheduledAt]);
+
+  async function submit(event) {
+    event.preventDefault();
+    const when = new Date(value);
+    if (!value || Number.isNaN(when.getTime())) {
+      setError('Pick a date and time.');
+      return;
+    }
+    if (when.getTime() < Date.now() + 2 * 60 * 1000) {
+      setError('Pick a time at least 2 minutes from now, or use Send now.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/campaigns/${campaign.id}/schedule`, { method: 'POST', body: { sendAt: when.toISOString() } });
+      toast.success(`Scheduled for ${formatDateTime(when)}`);
+      onScheduled();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={campaign.scheduledAt ? 'Change the send time' : 'Schedule this campaign'}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" form="schedule-form" icon={LuClock} loading={busy}>
+            Schedule
+          </Button>
+        </>
+      }
+    >
+      <form id="schedule-form" onSubmit={submit} className="space-y-3" noValidate>
+        {error ? <Notice tone="red">{error}</Notice> : null}
+        <Input
+          label="Send on"
+          type="datetime-local"
+          value={value}
+          min={localInputValue(new Date(Date.now() + 5 * 60 * 1000))}
+          onChange={(e) => setValue(e.target.value)}
+          hint="In your computer’s time. You can change or cancel it until it starts sending."
+        />
+        <p className="text-sm text-mist-600">
+          It goes to everyone in the audience at that moment, so contacts you add before then are included.
+        </p>
+      </form>
+    </Modal>
+  );
+}
+
+function Recipients({ campaignId, campaignName, refreshKey }) {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  const { toast } = useFeedback();
+  const [downloading, setDownloading] = useState(false);
   const { data, error, loading, reload } = useApi(`/campaigns/${campaignId}/recipients`, { status, page, limit: LIMIT });
   useEffect(() => setPage(1), [status]);
+
+  async function download() {
+    setDownloading(true);
+    try {
+      const blob = await api(`/campaigns/${campaignId}/report.csv`, { blob: true });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${campaignName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'campaign'}-report.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setDownloading(false);
+    }
+  }
   useEffect(() => {
     if (refreshKey) reload({ quiet: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,7 +165,12 @@ function Recipients({ campaignId, refreshKey }) {
   return (
     <Panel>
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <h2 className="font-display text-lg font-semibold text-mist-900">Recipients</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="font-display text-lg font-semibold text-mist-900">Recipients</h2>
+          <Button variant="secondary" size="sm" icon={LuDownload} onClick={download} loading={downloading}>
+            Download report (CSV)
+          </Button>
+        </div>
         <Tabs
           value={status}
           onChange={setStatus}
@@ -99,6 +205,7 @@ export default function CampaignPage() {
   const { data: templateData } = useApi('/templates');
   const { data: tagData } = useApi('/tags');
   const [busy, setBusy] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const running = campaign ? isRunning(campaign.status) : false;
 
@@ -137,6 +244,14 @@ export default function CampaignPage() {
     });
     if (ok) act(`/campaigns/${id}/launch`, 'POST', 'Campaign started');
   }
+  async function unschedule() {
+    const ok = await confirm({
+      title: 'Cancel the schedule?',
+      message: 'The campaign goes back to a draft and nothing is sent. You can send or schedule it again later.',
+      confirmLabel: 'Cancel schedule',
+    });
+    if (ok) act(`/campaigns/${id}/unschedule`, 'POST', 'Schedule cancelled');
+  }
   async function cancel() {
     const ok = await confirm({ title: 'Stop this campaign?', message: 'Messages already sent stay sent. The rest will be skipped.', confirmLabel: 'Stop sending', danger: true });
     if (ok) act(`/campaigns/${id}/cancel`, 'POST', 'Campaign stopped');
@@ -174,7 +289,8 @@ export default function CampaignPage() {
   const template = templateData?.items.find((t) => t.id === campaign.templateId) ?? null;
   const tagNames = campaign.audience.type === 'tags' ? (tagData?.items ?? []).filter((t) => campaign.audience.tagIds.includes(t.id)).map((t) => t.name) : [];
   const audienceText = campaign.audience.type === 'all' ? 'All contacts' : `Contacts tagged ${tagNames.length ? tagNames.join(', ') : '(deleted tags)'}`;
-  const draft = campaign.status === 'draft';
+  const scheduled = campaign.status === 'scheduled';
+  const draft = campaign.status === 'draft' || scheduled;
 
   return (
     <>
@@ -210,7 +326,12 @@ export default function CampaignPage() {
         {draft ? (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
             <Panel className="p-5">
-              <h2 className="font-display text-lg font-semibold text-mist-900">Ready to send</h2>
+              <h2 className="font-display text-lg font-semibold text-mist-900">{scheduled ? 'Scheduled' : 'Ready to send'}</h2>
+              {scheduled ? (
+                <Notice tone="blue" icon={LuClock} className="mt-3" title={`Goes out ${formatDateTime(campaign.scheduledAt)}`}>
+                  WaDesk sends it automatically at that time. You can change the time or cancel it until then.
+                </Notice>
+              ) : null}
               <dl className="mt-3 space-y-2 text-mist-700">
                 <div className="flex gap-2">
                   <dt className="w-28 shrink-0 text-mist-500">Audience</dt>
@@ -231,12 +352,26 @@ export default function CampaignPage() {
                 <Notice tone="red" className="mt-4" title="The template was deleted in WhatsApp Manager">
                   Delete this campaign and create a new one with a current template.
                 </Notice>
+              ) : isManager && scheduled ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button icon={LuClock} onClick={() => setScheduleOpen(true)} disabled={busy}>
+                    Change time
+                  </Button>
+                  <Button variant="secondary" onClick={unschedule} loading={busy}>
+                    Cancel schedule
+                  </Button>
+                </div>
               ) : isManager ? (
-                <Button className="mt-5" icon={LuSend} onClick={launch} loading={busy} disabled={!campaign.audienceSize}>
-                  Send to {plural(campaign.audienceSize ?? 0, 'contact')}
-                </Button>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button icon={LuSend} onClick={launch} loading={busy} disabled={!campaign.audienceSize}>
+                    Send to {plural(campaign.audienceSize ?? 0, 'contact')}
+                  </Button>
+                  <Button variant="secondary" icon={LuClock} onClick={() => setScheduleOpen(true)} disabled={busy || !campaign.audienceSize}>
+                    Schedule for later
+                  </Button>
+                </div>
               ) : (
-                <p className="mt-4 text-mist-600">An owner or admin can send this campaign.</p>
+                <p className="mt-4 text-mist-600">An owner or admin can {scheduled ? 'change this schedule' : 'send this campaign'}.</p>
               )}
             </Panel>
             {template ? <TemplatePreview template={template} variables={campaign.variables} contact={{ name: 'Anil Kumar' }} /> : null}
@@ -277,10 +412,11 @@ export default function CampaignPage() {
             </div>
             {stats.skipped ? <p className="text-sm text-mist-600">{plural(stats.skipped, 'recipient')} skipped (campaign stopped or contact opted out).</p> : null}
 
-            <Recipients campaignId={id} refreshKey={refreshKey} />
+            <Recipients campaignId={id} campaignName={campaign.name} refreshKey={refreshKey} />
           </>
         )}
       </PageBody>
+      {isManager ? <ScheduleDialog open={scheduleOpen} campaign={campaign} onClose={() => setScheduleOpen(false)} onScheduled={refresh} /> : null}
     </>
   );
 }

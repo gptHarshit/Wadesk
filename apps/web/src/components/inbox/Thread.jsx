@@ -6,6 +6,7 @@ import {
   LuArrowLeft,
   LuFile,
   LuFileText,
+  LuMessageSquare,
   LuPanelRight,
   LuPaperclip,
   LuRotateCcw,
@@ -20,6 +21,7 @@ import { useSocketEvent } from '@/lib/socket';
 import { SendTemplateDialog } from '../templates';
 import { Avatar, Button, ErrorBlock, IconButton, LoadingBlock, cx, useFeedback } from '../ui';
 import { MessageBubble } from './MessageBubble';
+import { SavedRepliesDialog, fillSavedReply } from './SavedReplies';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -57,6 +59,7 @@ function Composer({ conversation, onSent, onOpenTemplates }) {
   const [text, setText] = useState('');
   const [file, setFile] = useState(null);
   const [sending, setSending] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
   const textarea = useRef(null);
   const fileInput = useRef(null);
 
@@ -92,6 +95,18 @@ function Composer({ conversation, onSent, onOpenTemplates }) {
       setSending(false);
       textarea.current?.focus();
     }
+  }
+
+  function insertSaved(reply) {
+    const filled = fillSavedReply(reply.body, conversation.contact);
+    setText((current) => (current.trim() ? `${current.replace(/\s+$/, '')}\n${filled}` : filled));
+    setSavedOpen(false);
+    requestAnimationFrame(() => {
+      const el = textarea.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
   }
 
   function onKeyDown(event) {
@@ -144,6 +159,7 @@ function Composer({ conversation, onSent, onOpenTemplates }) {
         />
         <IconButton label="Attach a file" icon={LuPaperclip} onClick={() => fileInput.current?.click()} className="mb-0.5" />
         <IconButton label="Send a template" icon={LuFileText} onClick={onOpenTemplates} className="mb-0.5" />
+        <IconButton label="Saved replies" icon={LuMessageSquare} onClick={() => setSavedOpen(true)} className="mb-0.5" />
         <textarea
           ref={textarea}
           rows={1}
@@ -158,6 +174,7 @@ function Composer({ conversation, onSent, onOpenTemplates }) {
           <span className="hidden sm:inline">Send</span>
         </Button>
       </div>
+      <SavedRepliesDialog open={savedOpen} onClose={() => setSavedOpen(false)} onInsert={insertSaved} />
     </div>
   );
 }

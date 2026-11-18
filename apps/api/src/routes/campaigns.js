@@ -5,7 +5,8 @@ import { asyncHandler, badRequest, notFound } from '../lib/errors.js';
 import { idParam, limit, page, parse, uuid } from '../lib/validate.js';
 import { requireAuth, requireManager } from '../middleware/auth.js';
 import { campaignQueue } from '../queues.js';
-import { CAMPAIGN_SELECT, cancelCampaign, countAudience, previewCampaign } from '../services/campaigns.js';
+import { CAMPAIGN_SELECT, campaignReportCsv, cancelCampaign, countAudience, previewCampaign } from '../services/campaigns.js';
+import { DEFAULT_TIMEZONE, isValidTimezone } from '../services/officeHours.js';
 import { assertTags } from '../services/contacts.js';
 import { buildTemplateMessage, sanitizeVariables } from '../services/templates.js';
 import { requireAccount } from '../services/whatsapp.js';
@@ -127,7 +128,8 @@ campaignsRouter.get(
     const { id } = parse(idParam, req.params);
     const campaign = await getCampaign(req.user.workspaceId, id);
     if (!campaign) throw notFound('Campaign');
-    const audienceSize = campaign.status === 'draft' ? await countAudience(req.user.workspaceId, campaign.audience) : null;
+    const notSentYet = campaign.status === 'draft' || campaign.status === 'scheduled';
+    const audienceSize = notSentYet ? await countAudience(req.user.workspaceId, campaign.audience) : null;
     res.json({ ...campaign, audienceSize });
   }),
 );
@@ -186,6 +188,75 @@ campaignsRouter.post(
     await campaignQueue.add('prepare', { campaignId: id }, { jobId: `campaign_${id}` });
 
     res.json(await getCampaign(workspaceId, id));
+  }),
+);
+
+const MIN_SCHEDULE_MS = 2 * 60 * 1000;
+const MAX_SCHEDULE_MS = 60 * 24 * 60 * 60 * 1000;
+
+/** Send a draft automatically at a later time. */
+campaignsRouter.post(
+  '/:id/schedule',
+  requireManager,
+  asyncHandler(async (req, res) => {
+    const { id } = parse(idParam, req.params);
+    const body = parse(z.object({ sendAt: z.string().datetime({ offset: true, message: 'Pick a date and time' }) }), req.body);
+    const sendAt = new Date(body.sendAt);
+    const ahead = sendAt.getTime() - Date.now();
+    if (ahead < MIN_SCHEDULE_MS) throw badRequest('Pick a time at least 2 minutes from now, or use Send now');
+    if (ahead > MAX_SCHEDULE_MS) throw badRequest('Campaigns can be scheduled up to 60 days ahead');
+
+    const workspaceId = req.user.workspaceId;
+    await requireAccount(workspaceId);
+    const campaign = await getCampaign(workspaceId, id);
+    if (!campaign) throw notFound('Campaign');
+    if (campaign.status !== 'draft' && campaign.status !== 'scheduled') throw badRequest('This campaign has already been sent');
+    if (!campaign.templateId) throw badRequest('The template for this campaign no longer exists');
+    if ((await countAudience(workspaceId, campaign.audience)) === 0) {
+      throw badRequest('No contacts match this audience (opted-out contacts are excluded)');
+    }
+
+    const row = await db.one(
+      `UPDATE campaigns SET status = 'scheduled', scheduled_at = $3
+        WHERE id = $1 AND workspace_id = $2 AND status IN ('draft', 'scheduled') RETURNING id`,
+      [id, workspaceId, sendAt],
+    );
+    if (!row) throw badRequest('This campaign has already been sent');
+    res.json(await getCampaign(workspaceId, id));
+  }),
+);
+
+/** Take a scheduled campaign back to draft, so it is not sent. */
+campaignsRouter.post(
+  '/:id/unschedule',
+  requireManager,
+  asyncHandler(async (req, res) => {
+    const { id } = parse(idParam, req.params);
+    const row = await db.one(
+      `UPDATE campaigns SET status = 'draft', scheduled_at = NULL
+        WHERE id = $1 AND workspace_id = $2 AND status = 'scheduled' RETURNING id`,
+      [id, req.user.workspaceId],
+    );
+    if (!row) throw badRequest('This campaign is not scheduled any more (it may have started sending)');
+    res.json(await getCampaign(req.user.workspaceId, id));
+  }),
+);
+
+/** Download who got the campaign and what happened, as a CSV file. */
+campaignsRouter.get(
+  '/:id/report.csv',
+  asyncHandler(async (req, res) => {
+    const { id } = parse(idParam, req.params);
+    const campaign = await getCampaign(req.user.workspaceId, id);
+    if (!campaign) throw notFound('Campaign');
+    const workspace = await db.one('SELECT timezone FROM workspaces WHERE id = $1', [req.user.workspaceId]);
+    const timeZone = isValidTimezone(workspace?.timezone) ? workspace.timezone : DEFAULT_TIMEZONE;
+    const csv = await campaignReportCsv(req.user.workspaceId, id, timeZone);
+    const slug = campaign.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'campaign';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${slug}-report.csv"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(csv);
   }),
 );
 

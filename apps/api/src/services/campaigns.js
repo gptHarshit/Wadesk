@@ -1,9 +1,10 @@
 import { db } from '../db.js';
 import { logger } from '../logger.js';
-import { campaignMessageQueue } from '../queues.js';
+import { campaignMessageQueue, campaignQueue } from '../queues.js';
 import { publish } from '../realtime.js';
 import { ensureConversation, getConversation, getMessage, previewFor, touchConversation } from './conversations.js';
 import { rememberUserId } from './outbound.js';
+import { REPORT_STATUS, csvCell, reportPhone, reportTime } from './report.js';
 import { buildTemplateMessage, missingFields, mergeFieldsUsed } from './templates.js';
 import { WhatsAppError, getAccount, sendTemplate } from './whatsapp.js';
 
@@ -20,7 +21,7 @@ const STATS_COLUMNS = `
 
 export const CAMPAIGN_SELECT = `
   SELECT c.id, c.name, c.template_id, c.template_name, c.template_language, c.variables, c.audience, c.status,
-         c.total_recipients, c.error_message, c.created_at, c.started_at, c.completed_at,
+         c.total_recipients, c.error_message, c.created_at, c.started_at, c.completed_at, c.scheduled_at,
          u.name AS created_by_name,
          (SELECT row_to_json(s) FROM (SELECT ${STATS_COLUMNS} FROM campaign_recipients r WHERE r.campaign_id = c.id) s) AS stats
     FROM campaigns c
@@ -277,4 +278,72 @@ export async function cancelCampaign(workspaceId, campaignId) {
   );
   await notify(workspaceId, campaignId);
   return true;
+}
+
+/**
+ * Launch scheduled campaigns whose time has come. Runs every half minute in the
+ * worker. The status change in SQL is atomic, so two workers can't both launch one.
+ */
+export async function launchDueCampaigns() {
+  const orphaned = await db.many(
+    `UPDATE campaigns SET status = 'failed', completed_at = now(),
+            error_message = 'The template was deleted in WhatsApp Manager before the scheduled time'
+      WHERE status = 'scheduled' AND scheduled_at <= now() AND template_id IS NULL
+      RETURNING id, workspace_id`,
+  );
+  for (const c of orphaned) await notify(c.workspaceId, c.id);
+
+  const due = await db.many(
+    `UPDATE campaigns SET status = 'queued'
+      WHERE status = 'scheduled' AND scheduled_at <= now()
+      RETURNING id, workspace_id`,
+  );
+  for (const c of due) {
+    try {
+      await campaignQueue.add('prepare', { campaignId: c.id }, { jobId: `campaign_${c.id}` });
+      logger.info({ campaignId: c.id }, 'Scheduled campaign launched');
+    } catch (err) {
+      // Put it back so the next sweep tries again.
+      logger.error({ err, campaignId: c.id }, 'Could not launch scheduled campaign');
+      await db.exec(`UPDATE campaigns SET status = 'scheduled' WHERE id = $1 AND status = 'queued'`, [c.id]);
+    }
+    await notify(c.workspaceId, c.id);
+  }
+  return due.length;
+}
+
+/* ---- Report download ---- */
+
+/** Every recipient of a campaign with what happened to their message, as CSV text. */
+export async function campaignReportCsv(workspaceId, campaignId, timeZone) {
+  const rows = await db.many(
+    `SELECT ct.name, ct.phone, r.status, r.error_code, r.error_message,
+            m.sent_at, m.delivered_at, m.read_at
+       FROM campaign_recipients r
+       JOIN contacts ct ON ct.id = r.contact_id
+       LEFT JOIN messages m ON m.id = r.message_id
+      WHERE r.workspace_id = $1 AND r.campaign_id = $2
+      ORDER BY ct.name NULLS LAST, ct.phone`,
+    [workspaceId, campaignId],
+  );
+  const header = ['Name', 'Phone', 'Status', 'Sent at', 'Delivered at', 'Read at', 'Reason it failed'];
+  const lines = [header.map(csvCell).join(',')];
+  for (const r of rows) {
+    const reason = r.errorMessage ? `${r.errorMessage}${r.errorCode ? ` (code ${r.errorCode})` : ''}` : '';
+    lines.push(
+      [
+        r.name ?? '',
+        reportPhone(r.phone),
+        REPORT_STATUS[r.status] ?? r.status,
+        reportTime(r.sentAt, timeZone),
+        reportTime(r.deliveredAt, timeZone),
+        reportTime(r.readAt, timeZone),
+        reason,
+      ]
+        .map(csvCell)
+        .join(','),
+    );
+  }
+  // The byte-order mark makes Excel read Hindi and other non-English names correctly.
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }

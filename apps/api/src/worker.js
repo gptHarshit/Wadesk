@@ -6,8 +6,10 @@ import { db } from './db.js';
 import { logger } from './logger.js';
 import { QUEUES, closeQueues } from './queues.js';
 import { createQueueConnection, redis } from './redis.js';
-import { failCampaign, failRecipient, prepareCampaign, sendCampaignMessage } from './services/campaigns.js';
+import { failCampaign, failRecipient, launchDueCampaigns, prepareCampaign, sendCampaignMessage } from './services/campaigns.js';
 import { processWebhookPayload } from './services/inbound.js';
+
+const SCHEDULE_SWEEP_MS = 30_000;
 
 const isLastAttempt = (job) => job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
 const exhausted = (job) => job && job.attemptsMade >= (job.opts.attempts ?? 1);
@@ -52,9 +54,16 @@ export function startWorkers() {
   for (const worker of [webhookWorker, campaignWorker, messageWorker]) {
     worker.on('error', (err) => logger.error({ err: err.message }, 'Worker error'));
   }
+  // Scheduled campaigns: look for due ones now (in case the server was asleep at the time) and every 30 seconds.
+  const sweep = () => launchDueCampaigns().catch((err) => logger.error({ err }, 'Scheduled campaign check failed'));
+  sweep();
+  const sweepTimer = setInterval(sweep, SCHEDULE_SWEEP_MS);
+  sweepTimer.unref?.();
+
   logger.info('Queue workers started');
 
   return async function stopWorkers() {
+    clearInterval(sweepTimer);
     await Promise.allSettled([webhookWorker.close(), campaignWorker.close(), messageWorker.close()]);
   };
 }

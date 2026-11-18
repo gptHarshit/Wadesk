@@ -15,6 +15,7 @@ import { campaignsRouter } from './routes/campaigns.js';
 import { contactsRouter, tagsRouter } from './routes/contacts.js';
 import { conversationsRouter, mediaRouter } from './routes/conversations.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { savedRepliesRouter } from './routes/savedReplies.js';
 import { settingsRouter } from './routes/settings.js';
 import { teamRouter } from './routes/team.js';
 import { templatesRouter } from './routes/templates.js';
@@ -91,6 +92,7 @@ export function createApp() {
   app.use('/api/templates', templatesRouter);
   app.use('/api/campaigns', campaignsRouter);
   app.use('/api/auto-replies', autoRepliesRouter);
+  app.use('/api/saved-replies', savedRepliesRouter);
   app.use('/api/dashboard', dashboardRouter);
 
   app.use(notFoundHandler);
