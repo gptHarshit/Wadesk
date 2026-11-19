@@ -58,7 +58,7 @@ function CampaignCheck({ check, checking }) {
         <div className="space-y-2">
           <p className="text-sm font-medium text-mist-700">What real contacts will receive</p>
           {check.samples.map((s) => (
-            <div key={s.id} className="rounded-lg border border-mist-200 bg-white px-3 py-2">
+            <div key={s.id} className="rounded-lg border border-mist-200 bg-surface px-3 py-2">
               <p className="text-xs font-medium text-mist-500">{s.name || formatPhone(s.phone)}</p>
               <p className="whitespace-pre-wrap text-sm text-mist-900">{s.text}</p>
             </div>
@@ -80,10 +80,10 @@ function AudienceOption({ checked, onSelect, title, children }) {
     <label
       className={cx(
         'flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors',
-        checked ? 'border-leaf-600 bg-leaf-50' : 'border-mist-300 bg-white hover:bg-mist-50',
+        checked ? 'border-brand-500 bg-brand-50' : 'border-mist-300 bg-surface hover:bg-mist-50',
       )}
     >
-      <input type="radio" name="audience" checked={checked} onChange={onSelect} className="mt-1 h-4 w-4 accent-leaf-600" />
+      <input type="radio" name="audience" checked={checked} onChange={onSelect} className="mt-1 h-4 w-4 accent-brand-600" />
       <span className="min-w-0 flex-1">
         <span className="block font-medium text-mist-900">{title}</span>
         {children}
@@ -169,7 +169,7 @@ export default function NewCampaignPage() {
   }
 
   const back = (
-    <Link href="/campaigns" className="inline-flex h-10 items-center gap-2 rounded-md border border-mist-300 bg-white px-4 font-medium text-mist-800 hover:bg-mist-50">
+    <Link href="/campaigns" className="inline-flex h-10 items-center gap-2 rounded-md border border-mist-300 bg-surface px-4 font-medium text-mist-800 hover:bg-mist-50">
       <LuArrowLeft className="h-4 w-4" aria-hidden />
       All campaigns
     </Link>
@@ -243,7 +243,7 @@ export default function NewCampaignPage() {
                             onClick={() => setTagIds(on ? tagIds.filter((id) => id !== tag.id) : [...tagIds, tag.id])}
                             className={cx(
                               'rounded-full border px-2.5 py-1 text-sm font-medium',
-                              on ? 'border-leaf-600 bg-leaf-600 text-white' : 'border-mist-300 bg-white text-mist-700 hover:bg-mist-50',
+                              on ? 'border-brand-600 bg-brand-600 text-white' : 'border-mist-300 bg-surface text-mist-700 hover:bg-mist-50',
                             )}
                           >
                             {tag.name} ({tag.contactCount})

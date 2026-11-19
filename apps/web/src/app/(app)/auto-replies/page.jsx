@@ -15,7 +15,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const TIMEZONES = ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney'];
 const TIME_INPUT =
-  'h-9 w-[7.5rem] rounded-md border border-mist-300 bg-white px-2 tabular-nums text-mist-900 focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/20 disabled:bg-mist-100 disabled:text-mist-400';
+  'h-9 w-[7.5rem] rounded-md border border-mist-300 bg-surface px-2 tabular-nums text-mist-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:bg-mist-100 disabled:text-mist-400';
 
 /** Away message: answers people who write outside office hours. */
 function AwayPanel({ canEdit }) {
@@ -128,7 +128,7 @@ function AwayPanel({ canEdit }) {
                           checked={day.open}
                           onChange={(e) => setDay(index, { open: e.target.checked })}
                           disabled={!canEdit}
-                          className="h-4 w-4 accent-leaf-600"
+                          className="h-4 w-4 accent-brand-600"
                         />
                         {DAY_NAMES[index]}
                       </label>

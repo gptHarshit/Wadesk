@@ -40,7 +40,7 @@ export function toAttributes(rows) {
 export const sameAttributes = (a, b) => JSON.stringify(Object.entries(a ?? {}).sort()) === JSON.stringify(Object.entries(b ?? {}).sort());
 
 const CELL =
-  'h-9 w-full min-w-0 rounded-md border border-mist-300 bg-white px-2.5 text-sm placeholder:text-mist-400 focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/20';
+  'h-9 w-full min-w-0 rounded-md border border-mist-300 bg-surface px-2.5 text-sm placeholder:text-mist-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20';
 
 /** Editable list of a contact's custom fields (key + value rows). */
 export function FieldsEditor({ rows, onChange, suggestions = [] }) {
@@ -115,7 +115,7 @@ export function FieldChips({ fields, onPick }) {
           key={key}
           type="button"
           onClick={() => onPick(key)}
-          className="rounded-full border border-mist-300 bg-white px-2 py-0.5 text-xs font-medium text-mist-700 hover:border-leaf-600 hover:bg-leaf-50"
+          className="rounded-full border border-mist-300 bg-surface px-2 py-0.5 text-xs font-medium text-mist-700 hover:border-brand-500 hover:bg-brand-50"
         >
           {key}
         </button>

@@ -20,7 +20,7 @@ function Bubble({ side, children, time }) {
         className={
           mine
             ? 'max-w-[80%] rounded-2xl rounded-br-sm bg-leaf-100 px-3.5 py-2 text-mist-900'
-            : 'max-w-[80%] rounded-2xl rounded-bl-sm bg-white px-3.5 py-2 text-mist-900'
+            : 'max-w-[80%] rounded-2xl rounded-bl-sm bg-surface px-3.5 py-2 text-mist-900'
         }
       >
         <p className="leading-snug">{children}</p>
@@ -36,7 +36,7 @@ function Bubble({ side, children, time }) {
 /** Shared frame for sign-in pages: the form on the left, a sample chat on the right. */
 export function AuthShell({ title, subtitle, children, footer }) {
   return (
-    <div className="grid min-h-dvh bg-white lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+    <div className="grid min-h-dvh bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="flex flex-col px-6 py-8 sm:px-12">
         <Logo />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">

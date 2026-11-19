@@ -168,7 +168,7 @@ export default function TeamPage() {
             value={m.role}
             onChange={(e) => update(m, { role: e.target.value }, `${m.name} is now ${e.target.value === 'admin' ? 'an admin' : 'an agent'}`)}
             aria-label={`Role for ${m.name}`}
-            className="h-9 rounded-md border border-mist-300 bg-white px-2 text-sm capitalize"
+            className="h-9 rounded-md border border-mist-300 bg-surface px-2 text-sm capitalize"
           >
             <option value="agent">Agent</option>
             <option value="admin">Admin</option>

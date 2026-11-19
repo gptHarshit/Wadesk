@@ -135,7 +135,7 @@ function Composer({ conversation, onSent, onOpenTemplates }) {
   }
 
   return (
-    <div className="border-t border-mist-200 bg-white">
+    <div className="border-t border-mist-200 bg-surface">
       <ReplyWindow conversation={conversation} />
       {file ? (
         <div className="mx-4 mt-2 flex items-center gap-2 rounded-md bg-mist-100 px-3 py-2 text-sm">
@@ -168,7 +168,7 @@ function Composer({ conversation, onSent, onOpenTemplates }) {
           onKeyDown={onKeyDown}
           placeholder={file ? 'Add a caption (optional)' : 'Type a message'}
           aria-label="Message"
-          className="max-h-[150px] min-h-10 flex-1 resize-none rounded-2xl border border-mist-300 bg-mist-50 px-4 py-2 leading-snug placeholder:text-mist-400 focus:border-leaf-600 focus:bg-white focus:outline-none"
+          className="max-h-[150px] min-h-10 flex-1 resize-none rounded-2xl border border-mist-300 bg-mist-50 px-4 py-2 leading-snug placeholder:text-mist-400 focus:border-brand-500 focus:bg-surface focus:outline-none"
         />
         <Button onClick={send} loading={sending} disabled={!text.trim() && !file} icon={LuSend} className="mb-0.5 rounded-full" aria-label="Send">
           <span className="hidden sm:inline">Send</span>
@@ -184,7 +184,7 @@ function ThreadHeader({ conversation, team, onBack, onPatch, onToggleDetails, de
   const name = contactLabel(contact);
   const closed = conversation.status === 'closed';
   return (
-    <header className="flex items-center gap-2 border-b border-mist-200 bg-white px-3 py-2.5">
+    <header className="flex items-center gap-2 border-b border-mist-200 bg-surface px-3 py-2.5">
       <IconButton label="Back to conversations" icon={LuArrowLeft} onClick={onBack} className="md:hidden" />
       <Avatar label={name} seed={contact.id} />
       <div className="min-w-0 flex-1">
@@ -196,7 +196,7 @@ function ThreadHeader({ conversation, team, onBack, onPatch, onToggleDetails, de
         <select
           value={conversation.assignedTo ?? ''}
           onChange={(e) => onPatch({ assignedTo: e.target.value || null })}
-          className="h-9 max-w-40 rounded-md border border-mist-300 bg-white px-2 text-mist-800 focus:border-leaf-600 focus:outline-none"
+          className="h-9 max-w-40 rounded-md border border-mist-300 bg-surface px-2 text-mist-800 focus:border-brand-500 focus:outline-none"
         >
           <option value="">Unassigned</option>
           {team.map((member) => (
@@ -353,7 +353,7 @@ export function Thread({ conversation, team, onConversation, onBack, onToggleDet
               </div>
             ) : null}
             {!messages.length ? (
-              <p className="mx-auto mt-10 max-w-xs rounded-lg bg-white/80 px-4 py-3 text-center text-sm text-mist-600">
+              <p className="mx-auto mt-10 max-w-xs rounded-lg bg-surface/80 px-4 py-3 text-center text-sm text-mist-600">
                 No messages yet. Send a template to start the conversation.
               </p>
             ) : null}
@@ -364,7 +364,7 @@ export function Thread({ conversation, team, onConversation, onBack, onToggleDet
               return (
                 <div key={message.id} className="flex flex-col gap-1.5">
                   {heading ? (
-                    <p className="mx-auto my-2 rounded-full bg-white/90 px-3 py-0.5 text-xs font-medium text-mist-600 shadow-sm">
+                    <p className="mx-auto my-2 rounded-full bg-surface/90 px-3 py-0.5 text-xs font-medium text-mist-600 shadow-sm">
                       {formatDayHeading(message.createdAt)}
                     </p>
                   ) : null}

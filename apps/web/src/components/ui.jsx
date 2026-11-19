@@ -8,10 +8,10 @@ export const cx = (...parts) => parts.filter(Boolean).join(' ');
 /* --------------------------------- Buttons --------------------------------- */
 
 const BUTTON_VARIANTS = {
-  primary: 'bg-leaf-600 text-white hover:bg-leaf-700 active:bg-leaf-800',
-  secondary: 'bg-white text-mist-800 border border-mist-300 hover:bg-mist-50 active:bg-mist-100',
+  primary: 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800',
+  secondary: 'bg-surface text-mist-800 border border-mist-300 hover:bg-mist-50 active:bg-mist-100',
   ghost: 'text-mist-700 hover:bg-mist-100 active:bg-mist-200',
-  danger: 'bg-brick-600 text-white hover:bg-brick-700',
+  danger: 'bg-brick-600 text-white hover:bg-brick-800',
   dangerGhost: 'text-brick-600 hover:bg-brick-50',
 };
 const BUTTON_SIZES = {
@@ -60,7 +60,7 @@ export function IconButton({ label, icon: Icon, className, ...props }) {
 /* ---------------------------------- Forms ---------------------------------- */
 
 const CONTROL =
-  'block w-full rounded-md border border-mist-300 bg-white px-3 text-mist-900 placeholder:text-mist-400 transition-colors focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/20 disabled:bg-mist-100 disabled:text-mist-500';
+  'block w-full rounded-md border border-mist-300 bg-surface px-3 text-mist-900 placeholder:text-mist-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:bg-mist-100 disabled:text-mist-500';
 
 export function Field({ label, hint, error, children, className }) {
   const id = useId();
@@ -120,10 +120,10 @@ export function Toggle({ checked, onChange, label, disabled }) {
       onClick={() => onChange(!checked)}
       className={cx(
         'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-leaf-600' : 'bg-mist-300',
+        checked ? 'bg-brand-600' : 'bg-mist-300',
       )}
     >
-      <span className={cx('inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform', checked ? 'translate-x-[1.35rem]' : 'translate-x-0.5')} />
+      <span className={cx('inline-block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform', checked ? 'translate-x-[1.35rem]' : 'translate-x-0.5')} />
     </button>
   );
 }
@@ -172,7 +172,8 @@ export function TagPill({ tag, onRemove }) {
   );
 }
 
-const AVATAR_TONES = ['bg-rail-700 text-white', 'bg-leaf-600 text-white', 'bg-marigold-400 text-mist-900', 'bg-sky-700 text-white', 'bg-brick-600 text-white', 'bg-mist-600 text-white'];
+// Fixed colours (not theme tokens) so a person's avatar looks the same in light and dark mode.
+const AVATAR_TONES = ['bg-[#1b4250] text-white', 'bg-[#0b7a5b] text-white', 'bg-[#f0b534] text-[#1a2320]', 'bg-[#1f5f8b] text-white', 'bg-[#b4412f] text-white', 'bg-[#55625c] text-white'];
 
 export function Avatar({ label, seed, size = 'md' }) {
   const text = String(seed || label || '?');
@@ -259,7 +260,7 @@ export function Notice({ tone = 'amber', icon: Icon = LuCircleAlert, title, chil
 
 export function PageHeader({ title, description, actions }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-3 border-b border-mist-200 bg-white px-5 py-4 lg:px-8">
+    <header className="flex flex-wrap items-end justify-between gap-3 border-b border-mist-200 bg-surface px-5 py-4 lg:px-8">
       <div className="min-w-0">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-mist-900">{title}</h1>
         {description ? <p className="mt-0.5 text-mist-600">{description}</p> : null}
@@ -274,7 +275,7 @@ export function PageBody({ children, className }) {
 }
 
 export function Panel({ children, className }) {
-  return <section className={cx('rounded-lg border border-mist-200 bg-white', className)}>{children}</section>;
+  return <section className={cx('rounded-lg border border-mist-200 bg-surface', className)}>{children}</section>;
 }
 
 /** Flat data table: hairlines between rows, no zebra, header in muted text. */
@@ -341,11 +342,11 @@ export function Tabs({ tabs, value, onChange, className }) {
           onClick={() => onChange(tab.value)}
           className={cx(
             'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
-            value === tab.value ? 'bg-white text-mist-900 shadow-sm' : 'text-mist-600 hover:text-mist-900',
+            value === tab.value ? 'bg-surface text-mist-900 shadow-sm' : 'text-mist-600 hover:text-mist-900',
           )}
         >
           {tab.label}
-          {tab.count ? <span className="rounded-full bg-marigold-400 px-1.5 text-xs font-semibold text-mist-900">{tab.count}</span> : null}
+          {tab.count ? <span className="rounded-full bg-marigold-400 px-1.5 text-xs font-semibold text-ink">{tab.count}</span> : null}
         </button>
       ))}
     </div>
@@ -388,7 +389,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         aria-label={title}
         tabIndex={-1}
         className={cx(
-          'animate-rise relative flex max-h-[92vh] w-full flex-col rounded-t-xl bg-white shadow-xl outline-none sm:rounded-xl',
+          'animate-rise relative flex max-h-[92vh] w-full flex-col rounded-t-xl bg-surface shadow-xl outline-none sm:rounded-xl',
           widths[size],
         )}
       >
@@ -448,7 +449,7 @@ export function FeedbackProvider({ children }) {
             role="status"
             className={cx(
               'animate-rise pointer-events-auto flex max-w-md items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-lg',
-              t.tone === 'error' ? 'bg-brick-700' : 'bg-rail-900',
+              t.tone === 'error' ? 'bg-brick-800' : 'bg-rail-900',
             )}
           >
             {t.tone === 'error' ? <LuCircleAlert className="h-4 w-4 shrink-0" aria-hidden /> : <LuCircleCheck className="h-4 w-4 shrink-0 text-leaf-200" aria-hidden />}

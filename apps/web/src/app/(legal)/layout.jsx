@@ -4,7 +4,7 @@ import Link from 'next/link';
 export default function LegalLayout({ children }) {
   return (
     <div className="min-h-dvh bg-mist-50">
-      <header className="border-b border-mist-200 bg-white">
+      <header className="border-b border-mist-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-mist-900">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -19,7 +19,7 @@ export default function LegalLayout({ children }) {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <article className="legal rounded-xl border border-mist-200 bg-white px-6 py-8 sm:px-10">{children}</article>
+        <article className="legal rounded-xl border border-mist-200 bg-surface px-6 py-8 sm:px-10">{children}</article>
       </main>
     </div>
   );

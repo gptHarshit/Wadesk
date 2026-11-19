@@ -10,7 +10,9 @@ import {
   LuLogOut,
   LuMegaphone,
   LuMenu,
+  LuMoon,
   LuSettings,
+  LuSun,
   LuUsers,
   LuUsersRound,
   LuX,
@@ -19,7 +21,30 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useSocket, useSocketEvent } from '@/lib/socket';
+import { applyTheme, currentTheme } from '@/lib/theme';
 import { Avatar, cx } from './ui';
+
+/** Switch between light and dark. The choice is saved in this browser only. */
+function ThemeToggle() {
+  const [theme, setTheme] = useState('light');
+  useEffect(() => setTheme(currentTheme()), []);
+  const next = theme === 'dark' ? 'light' : 'dark';
+  const Icon = theme === 'dark' ? LuSun : LuMoon;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        applyTheme(next);
+        setTheme(next);
+      }}
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+      className="rounded-md p-2 text-white/60 transition-colors hover:bg-rail-800 hover:text-white"
+    >
+      <Icon className="h-4 w-4" aria-hidden />
+    </button>
+  );
+}
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LuLayoutDashboard },
@@ -79,7 +104,7 @@ function NavLinks({ onNavigate, unread }) {
             <item.icon className="h-[1.15rem] w-[1.15rem] shrink-0" aria-hidden />
             <span className="flex-1">{item.label}</span>
             {count > 0 ? (
-              <span className="rounded-full bg-marigold-400 px-1.5 text-xs font-semibold text-mist-900" aria-label={`${count} unread`}>
+              <span className="rounded-full bg-marigold-400 px-1.5 text-xs font-semibold text-ink" aria-label={`${count} unread`}>
                 {count > 99 ? '99+' : count}
               </span>
             ) : null}
@@ -118,6 +143,7 @@ function Sidebar({ onNavigate }) {
               {connected ? user?.role : 'reconnecting…'}
             </p>
           </div>
+          <ThemeToggle />
           <button
             type="button"
             onClick={logout}

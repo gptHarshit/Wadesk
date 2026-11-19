@@ -121,7 +121,7 @@ export function SavedRepliesDialog({ open, onClose, onInsert }) {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search"
-                    className="h-10 w-full rounded-md border border-mist-300 bg-white pl-9 pr-3 focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/20"
+                    className="h-10 w-full rounded-md border border-mist-300 bg-surface pl-9 pr-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                   />
                 </label>
               ) : (
@@ -149,7 +149,7 @@ export function SavedRepliesDialog({ open, onClose, onInsert }) {
                     <button
                       type="button"
                       onClick={() => onInsert(reply)}
-                      className="min-w-0 flex-1 rounded-md px-1 py-0.5 text-left hover:bg-mist-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-leaf-600/40"
+                      className="min-w-0 flex-1 rounded-md px-1 py-0.5 text-left hover:bg-mist-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
                     >
                       <span className="block font-medium text-mist-900">{reply.title}</span>
                       <span className="line-clamp-2 whitespace-pre-wrap text-sm text-mist-600">{reply.body}</span>

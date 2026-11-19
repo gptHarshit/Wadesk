@@ -50,7 +50,7 @@ function TagPicker({ tags, value, onChange }) {
             onClick={() => toggle(tag.id)}
             className={cx(
               'rounded-full border px-2.5 py-1 text-sm font-medium transition-colors',
-              on ? 'border-leaf-600 bg-leaf-600 text-white' : 'border-mist-300 bg-white text-mist-700 hover:bg-mist-50',
+              on ? 'border-brand-600 bg-brand-600 text-white' : 'border-mist-300 bg-surface text-mist-700 hover:bg-mist-50',
             )}
           >
             {tag.name}
@@ -249,7 +249,7 @@ function ImportDialog({ open, tags, onClose, onImported }) {
           <button
             type="button"
             onClick={() => input.current?.click()}
-            className="flex w-full flex-col items-center gap-1 rounded-lg border-2 border-dashed border-mist-300 px-4 py-6 text-mist-600 transition-colors hover:border-leaf-600 hover:bg-leaf-50"
+            className="flex w-full flex-col items-center gap-1 rounded-lg border-2 border-dashed border-mist-300 px-4 py-6 text-mist-600 transition-colors hover:border-brand-500 hover:bg-brand-50"
           >
             <LuUpload className="h-6 w-6" aria-hidden />
             <span className="font-medium text-mist-900">{file ? file.name : 'Choose a CSV file'}</span>
@@ -309,7 +309,7 @@ function TagsDialog({ open, tags, isManager, onClose, onChanged }) {
         <Input label="New tag" value={name} onChange={(e) => setName(e.target.value)} className="min-w-0 flex-1" maxLength={40} />
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-mist-800">Colour</span>
-          <select value={color} onChange={(e) => setColor(e.target.value)} className="h-10 rounded-md border border-mist-300 bg-white px-2 capitalize">
+          <select value={color} onChange={(e) => setColor(e.target.value)} className="h-10 rounded-md border border-mist-300 bg-surface px-2 capitalize">
             {TAG_COLOR_NAMES.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -474,14 +474,14 @@ export default function ContactsPage() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search name, number or email"
               aria-label="Search contacts"
-              className="h-10 w-full rounded-md border border-mist-300 bg-white pl-9 pr-3 placeholder:text-mist-400 focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/20"
+              className="h-10 w-full rounded-md border border-mist-300 bg-surface pl-9 pr-3 placeholder:text-mist-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
           <select
             value={tagId}
             onChange={(e) => setTagId(e.target.value)}
             aria-label="Filter by tag"
-            className="h-10 rounded-md border border-mist-300 bg-white px-3 text-mist-800"
+            className="h-10 rounded-md border border-mist-300 bg-surface px-3 text-mist-800"
           >
             <option value="">All tags</option>
             {tags.map((tag) => (

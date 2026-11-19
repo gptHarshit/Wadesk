@@ -192,7 +192,7 @@ export function MessageBubble({ message }) {
         <div
           className={cx(
             'rounded-2xl px-3.5 py-2 text-mist-900 shadow-sm',
-            mine ? 'rounded-br-sm bg-leaf-100' : 'rounded-bl-sm bg-white',
+            mine ? 'rounded-br-sm bg-leaf-100' : 'rounded-bl-sm bg-surface',
             failed && 'ring-1 ring-brick-600/40',
           )}
         >

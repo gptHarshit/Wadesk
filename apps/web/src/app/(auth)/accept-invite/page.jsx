@@ -49,7 +49,7 @@ export default function AcceptInvitePage() {
       title={invite ? `Join ${invite.workspaceName}` : 'Join your team'}
       subtitle={invite ? `You’re joining as ${invite.email}. Set your name and a password.` : undefined}
       footer={
-        <Link href="/login" className="font-medium text-leaf-700 underline-offset-2 hover:underline">
+        <Link href="/login" className="font-medium text-brand-500 underline-offset-2 hover:underline">
           Already joined? Sign in
         </Link>
       }

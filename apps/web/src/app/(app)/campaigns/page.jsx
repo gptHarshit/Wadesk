@@ -11,7 +11,7 @@ import { useApi } from '@/lib/hooks';
 import { useSocketEvent } from '@/lib/socket';
 
 const LIMIT = 20;
-const linkButton = 'inline-flex h-10 items-center gap-2 rounded-md bg-leaf-600 px-4 font-medium text-white transition-colors hover:bg-leaf-700';
+const linkButton = 'inline-flex h-10 items-center gap-2 rounded-md bg-brand-600 px-4 font-medium text-white transition-colors hover:bg-brand-700';
 
 export default function CampaignsPage() {
   const { isManager } = useAuth();

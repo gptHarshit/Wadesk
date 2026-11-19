@@ -157,7 +157,7 @@ function WhatsAppSettings() {
         <ol className="mt-3 space-y-3">
           {SETUP_STEPS.map((step, index) => (
             <li key={step} className="flex gap-3 text-mist-700">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rail-900 text-xs font-semibold text-white">{index + 1}</span>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">{index + 1}</span>
               <span className="leading-snug">{step}</span>
             </li>
           ))}

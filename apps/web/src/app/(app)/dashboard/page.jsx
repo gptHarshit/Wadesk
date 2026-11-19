@@ -26,7 +26,7 @@ function Stat({ label, value, note, href, attention }) {
       {note ? <p className="mt-0.5 text-sm text-mist-500">{note}</p> : null}
     </>
   );
-  const className = 'block rounded-lg border border-mist-200 bg-white px-4 py-3.5';
+  const className = 'block rounded-lg border border-mist-200 bg-surface px-4 py-3.5';
   return href ? (
     <Link href={href} className={cx(className, 'transition-colors hover:border-mist-300')}>
       {body}
@@ -45,7 +45,7 @@ function WeekChart({ daily }) {
         {daily.map((day) => (
           <div key={day.date} className="flex h-full min-w-0 flex-1 items-end justify-center gap-1">
             {[
-              { value: day.received, tone: 'bg-rail-700', name: 'received' },
+              { value: day.received, tone: 'bg-brand-700', name: 'received' },
               { value: day.sent, tone: 'bg-leaf-500', name: 'sent' },
             ].map((bar) => (
               <div key={bar.name} className="flex h-full w-full max-w-7 flex-col items-center justify-end" title={`${day.date}: ${bar.value} ${bar.name}`}>
@@ -65,7 +65,7 @@ function WeekChart({ daily }) {
       </div>
       <div className="mt-3 flex gap-4 text-sm text-mist-600">
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-rail-700" aria-hidden /> Received
+          <span className="h-2.5 w-2.5 rounded-sm bg-brand-700" aria-hidden /> Received
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-leaf-500" aria-hidden /> Sent
@@ -147,7 +147,7 @@ export default function DashboardPage() {
               <Panel>
                 <div className="flex items-center justify-between px-5 pt-5">
                   <h2 className="font-display text-lg font-semibold text-mist-900">Recent campaigns</h2>
-                  <Link href="/campaigns" className="text-sm font-medium text-leaf-700 underline-offset-2 hover:underline">
+                  <Link href="/campaigns" className="text-sm font-medium text-brand-500 underline-offset-2 hover:underline">
                     See all
                   </Link>
                 </div>

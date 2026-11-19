@@ -53,7 +53,7 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
   const availableTags = (tagData?.items ?? []).filter((t) => !tagIds.includes(t.id));
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-mist-200 bg-white" aria-label="Contact details">
+    <aside className="flex h-full w-full flex-col border-l border-mist-200 bg-surface" aria-label="Contact details">
       <div className="flex items-center justify-between border-b border-mist-200 px-4 py-2.5">
         <h2 className="font-semibold text-mist-900">Contact</h2>
         <IconButton label="Close contact details" icon={LuX} onClick={onClose} />
@@ -86,7 +86,7 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
             <select
               value={conversation.assignedTo ?? ''}
               onChange={(e) => onPatchConversation({ assignedTo: e.target.value || null })}
-              className="h-10 w-full rounded-md border border-mist-300 bg-white px-2"
+              className="h-10 w-full rounded-md border border-mist-300 bg-surface px-2"
             >
               <option value="">Unassigned</option>
               {team.map((member) => (
@@ -110,7 +110,7 @@ export function ContactPanel({ conversation, team, onClose, onContactChanged, on
                 value=""
                 onChange={(e) => e.target.value && save({ tagIds: [...tagIds, e.target.value] })}
                 aria-label="Add a tag"
-                className="mt-2 h-9 w-full rounded-md border border-mist-300 bg-white px-2 text-sm text-mist-700"
+                className="mt-2 h-9 w-full rounded-md border border-mist-300 bg-surface px-2 text-sm text-mist-700"
               >
                 <option value="">Add a tag…</option>
                 {availableTags.map((tag) => (

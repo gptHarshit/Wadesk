@@ -90,7 +90,7 @@ export default function TemplatesPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search templates"
               aria-label="Search templates"
-              className="h-10 w-full rounded-md border border-mist-300 bg-white pl-9 pr-3 placeholder:text-mist-400 focus:border-leaf-600 focus:outline-none focus:ring-2 focus:ring-leaf-600/20"
+              className="h-10 w-full rounded-md border border-mist-300 bg-surface pl-9 pr-3 placeholder:text-mist-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
         ) : null}

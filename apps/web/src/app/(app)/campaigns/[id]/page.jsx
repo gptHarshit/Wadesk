@@ -18,7 +18,7 @@ const RECIPIENT_TONES = { pending: 'neutral', sent: 'blue', delivered: 'green', 
 
 function Stat({ label, value, share }) {
   return (
-    <div className="rounded-lg border border-mist-200 bg-white px-4 py-3">
+    <div className="rounded-lg border border-mist-200 bg-surface px-4 py-3">
       <p className="text-sm text-mist-600">{label}</p>
       <p className="mt-0.5 font-display text-2xl font-semibold tabular-nums tracking-tight text-mist-900">{Number(value).toLocaleString()}</p>
       {share !== undefined ? <p className="text-sm tabular-nums text-mist-500">{share}%</p> : null}
@@ -262,7 +262,7 @@ export default function CampaignPage() {
   }
 
   const back = (
-    <Link href="/campaigns" className="inline-flex h-10 items-center gap-2 rounded-md border border-mist-300 bg-white px-4 font-medium text-mist-800 hover:bg-mist-50">
+    <Link href="/campaigns" className="inline-flex h-10 items-center gap-2 rounded-md border border-mist-300 bg-surface px-4 font-medium text-mist-800 hover:bg-mist-50">
       <LuArrowLeft className="h-4 w-4" aria-hidden />
       All campaigns
     </Link>

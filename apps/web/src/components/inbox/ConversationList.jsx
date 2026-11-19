@@ -22,10 +22,10 @@ function Row({ conversation, active, onSelect }) {
         aria-current={active ? 'true' : undefined}
         className={cx(
           'relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
-          active ? 'bg-leaf-50' : 'hover:bg-mist-50',
+          active ? 'bg-brand-50' : 'hover:bg-mist-50',
         )}
       >
-        {active ? <span className="absolute inset-y-0 left-0 w-[3px] bg-leaf-600" aria-hidden /> : null}
+        {active ? <span className="absolute inset-y-0 left-0 w-[3px] bg-brand-600" aria-hidden /> : null}
         <Avatar label={name} seed={conversation.contact.id} />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
@@ -40,7 +40,7 @@ function Row({ conversation, active, onSelect }) {
               {conversation.lastMessagePreview || 'No messages yet'}
             </span>
             {unread ? (
-              <span className="shrink-0 rounded-full bg-marigold-400 px-1.5 text-xs font-bold text-mist-900" aria-label={`${conversation.unreadCount} unread`}>
+              <span className="shrink-0 rounded-full bg-marigold-400 px-1.5 text-xs font-bold text-ink" aria-label={`${conversation.unreadCount} unread`}>
                 {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
               </span>
             ) : null}
@@ -54,7 +54,7 @@ function Row({ conversation, active, onSelect }) {
 
 export function ConversationList({ list, filters, onFilters, search, onSearch, counts, selectedId, onSelect, onLoadMore, onRetry }) {
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-surface">
       <div className="space-y-2.5 border-b border-mist-200 px-4 pb-3 pt-4">
         <div className="flex items-center justify-between">
           <h1 className="font-display text-2xl font-semibold tracking-tight text-mist-900">Inbox</h1>
@@ -75,14 +75,14 @@ export function ConversationList({ list, filters, onFilters, search, onSearch, c
               onChange={(e) => onSearch(e.target.value)}
               placeholder="Name or number"
               aria-label="Search conversations"
-              className="h-9 w-full rounded-md border border-mist-300 bg-white pl-8 pr-2 text-sm placeholder:text-mist-400 focus:border-leaf-600 focus:outline-none"
+              className="h-9 w-full rounded-md border border-mist-300 bg-surface pl-8 pr-2 text-sm placeholder:text-mist-400 focus:border-brand-500 focus:outline-none"
             />
           </div>
           <select
             value={filters.assigned}
             onChange={(e) => onFilters({ ...filters, assigned: e.target.value })}
             aria-label="Filter by assignee"
-            className="h-9 rounded-md border border-mist-300 bg-white px-2 text-sm text-mist-800 focus:border-leaf-600 focus:outline-none"
+            className="h-9 rounded-md border border-mist-300 bg-surface px-2 text-sm text-mist-800 focus:border-brand-500 focus:outline-none"
           >
             {ASSIGNED_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>

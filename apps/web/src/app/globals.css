@@ -4,13 +4,19 @@
   WaDesk design tokens.
   mist     cool green-grey neutrals used for every surface and line
   rail     deep teal of the navigation rail
-  leaf     primary actions and outgoing message bubbles
+  brand    buttons, links, focus and selection: the same deep teal as the rail
+  leaf     good news (delivered, read, approved) and outgoing message bubbles
   marigold things waiting on you: unread chats, pending items
   brick    errors and destructive actions
 */
 @theme {
   --font-sans: "Mukta", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Anek Latin", "Mukta", ui-sans-serif, system-ui, sans-serif;
+
+  /* Cards, inputs and panels. White in light mode, dark grey in dark mode. */
+  --color-surface: #ffffff;
+  /* Text that must stay dark in both themes, e.g. on yellow count chips. */
+  --color-ink: #1a2320;
 
   --color-mist-50: #f5f7f6;
   --color-mist-100: #ecf0ee;
@@ -27,6 +33,13 @@
   --color-rail-800: #16383f;
   --color-rail-900: #12313a;
   --color-rail-950: #0c2229;
+
+  --color-brand-50: #e8f0f3;
+  --color-brand-100: #d2e2e8;
+  --color-brand-500: #2b6f85;
+  --color-brand-600: #12313a;
+  --color-brand-700: #1b4250;
+  --color-brand-800: #0c2229;
 
   --color-leaf-50: #eef8f2;
   --color-leaf-100: #ddf3e4;
@@ -47,6 +60,7 @@
   --color-brick-100: #f6d9d3;
   --color-brick-600: #b4412f;
   --color-brick-700: #933425;
+  --color-brick-800: #933425;
 
   --color-sky-50: #edf5fb;
   --color-sky-100: #d7e8f5;
@@ -55,6 +69,66 @@
 
 html {
   font-size: 15px;
+  --thread-bg: #eef1ef;
+  --thread-dot: rgb(18 49 58 / 0.07);
+}
+
+/*
+  Dark theme: the same tokens with dark values. Turned on by the "dark" class on <html>,
+  which each person sets for their own browser from the sidebar.
+*/
+html.dark {
+  color-scheme: dark;
+  --thread-bg: #121518;
+  --thread-dot: rgb(255 255 255 / 0.05);
+
+  --color-surface: #191c1f;
+
+  --color-mist-50: #0f1113;
+  --color-mist-100: #1f2326;
+  --color-mist-200: #2a2f33;
+  --color-mist-300: #3a4045;
+  --color-mist-400: #646d73;
+  --color-mist-500: #8d969c;
+  --color-mist-600: #a9b1b6;
+  --color-mist-700: #c4cbcf;
+  --color-mist-800: #dde2e4;
+  --color-mist-900: #eef1f2;
+
+  --color-rail-700: #2b3136;
+  --color-rail-800: #1c2024;
+  --color-rail-900: #121417;
+  --color-rail-950: #050607;
+
+  --color-brand-50: #15262c;
+  --color-brand-100: #1c3540;
+  --color-brand-500: #72b8cd;
+  --color-brand-600: #2c7a91;
+  --color-brand-700: #3a8ea6;
+  --color-brand-800: #24687c;
+
+  --color-leaf-50: #11251c;
+  --color-leaf-100: #1b4434;
+  --color-leaf-200: #2b6650;
+  --color-leaf-500: #2fbf8c;
+  --color-leaf-600: #24a57a;
+  --color-leaf-700: #63d3a7;
+  --color-leaf-800: #93e4c2;
+
+  --color-marigold-50: #2a2310;
+  --color-marigold-100: #3a2f12;
+  --color-marigold-700: #f0c060;
+  --color-marigold-800: #f5d58a;
+
+  --color-brick-50: #2c1714;
+  --color-brick-100: #3d1f1a;
+  --color-brick-600: #d0533e;
+  --color-brick-700: #f39a89;
+  --color-brick-800: #a83c2b;
+
+  --color-sky-50: #12212c;
+  --color-sky-100: #18303f;
+  --color-sky-700: #8cc4ea;
 }
 
 body {
@@ -74,14 +148,14 @@ select {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-leaf-600);
+  outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
 }
 
 /* The pattern behind a chat thread: a quiet dotted grid, like ruled paper. */
 .thread-surface {
-  background-color: #eef1ef;
-  background-image: radial-gradient(rgb(18 49 58 / 0.07) 1px, transparent 1px);
+  background-color: var(--thread-bg);
+  background-image: radial-gradient(var(--thread-dot) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 
